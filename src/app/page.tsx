@@ -1,5 +1,4 @@
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
+import AppLayout from "@/components/layout/AppLayout";
 import HeroSection from "@/components/home/HeroSection";
 import FeaturedServices from "@/components/home/FeaturedServices";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
@@ -11,19 +10,15 @@ import AOSInit from "@/components/home/AOSInit";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <AppLayout>
       <AOSInit />
-      <Navbar />
-      <main>
-        <HeroSection />
-        <HowItWorks />
-        <FeaturedServices />
-        <FeaturedProducts />
-        <FeaturedRealEstate />
-        <RolesSection />
-        <CTASection />
-      </main>
-      <Footer />
-    </div>
+      <HeroSection />
+      <HowItWorks />
+      <FeaturedServices />
+      <FeaturedProducts />
+      <FeaturedRealEstate />
+      <RolesSection />
+      <CTASection />
+    </AppLayout>
   );
 }
