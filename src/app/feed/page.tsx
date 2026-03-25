@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
+import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, CheckCircle2 } from "lucide-react";
 
@@ -103,9 +102,8 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <AppLayout>
+      <main className="max-w-2xl mx-auto py-8">
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold text-foreground mb-2">Feed</h1>
           <p className="text-muted-foreground">
@@ -189,7 +187,6 @@ export default function FeedPage() {
           ))}
         </div>
       </main>
-      <Footer />
-    </div>
+    </AppLayout>
   );
 }

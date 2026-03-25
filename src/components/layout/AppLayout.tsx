@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import MobileHeader from "./MobileHeader";
-import MobileBottomNav from "./MobileBottomNav";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,13 +14,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <Navbar />
       </div>
       <MobileHeader />
-      <main className="pb-20 lg:pb-0">
+      <main className="">
         {children}
       </main>
       <div className="hidden lg:block">
         <Footer />
       </div>
-      <MobileBottomNav />
     </div>
   );
 };
