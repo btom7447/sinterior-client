@@ -1,22 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { updatePassword } = useAuth();
+
+  const token = searchParams.get("token");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const { updatePassword } = useAuth();
-  const router = useRouter();
+
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+        <div className="text-center space-y-4 max-w-sm">
+          <AlertCircle strokeWidth={1} className="w-16 h-16 text-destructive mx-auto" />
+          <h1 className="font-display text-2xl font-bold text-foreground">Invalid reset link</h1>
+          <p className="text-muted-foreground">
+            This link is missing a reset token. Please request a new one.
+          </p>
+          <Link href="/forgot-password">
+            <Button className="rounded-xl mt-2">Request new link</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,12 +48,13 @@ export default function ResetPassword() {
     }
     setIsLoading(true);
     try {
-      await updatePassword(password);
+      await updatePassword(token, password);
       setDone(true);
       toast.success("Password updated successfully!");
-      setTimeout(() => router.push("/home"), 2000);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update password");
+      setTimeout(() => router.push("/login"), 2000);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to update password";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +66,7 @@ export default function ResetPassword() {
         <div className="text-center space-y-4">
           <CheckCircle2 strokeWidth={1} className="w-16 h-16 text-primary mx-auto" />
           <h1 className="font-display text-2xl font-bold text-foreground">Password updated!</h1>
-          <p className="text-muted-foreground">Redirecting you to the app...</p>
+          <p className="text-muted-foreground">Redirecting you to login...</p>
         </div>
       </div>
     );
@@ -74,14 +97,16 @@ export default function ResetPassword() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="py-6 rounded-xl pr-12"
                 required
-                minLength={6}
+                minLength={8}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showPassword ? <EyeOff strokeWidth={1} className="w-5 h-5" /> : <Eye strokeWidth={1} className="w-5 h-5" />}
+                {showPassword
+                  ? <EyeOff strokeWidth={1} className="w-5 h-5" />
+                  : <Eye strokeWidth={1} className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -96,7 +121,7 @@ export default function ResetPassword() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="py-6 rounded-xl"
               required
-              minLength={6}
+              minLength={8}
             />
           </div>
 
@@ -106,5 +131,13 @@ export default function ResetPassword() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

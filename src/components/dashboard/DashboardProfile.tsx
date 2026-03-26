@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Edit2, Save } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPatch } from "@/lib/apiClient";
 import { toast } from "sonner";
 
 const DashboardProfile = () => {
@@ -21,18 +21,13 @@ const DashboardProfile = () => {
   });
 
   const handleSave = async () => {
-    if (!profile?.id) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: form.full_name,
-          phone: form.phone,
-          bio: form.bio,
-        })
-        .eq("id", profile.id);
-      if (error) throw error;
+      await apiPatch("/profiles/me", {
+        fullName: form.full_name,
+        phone: form.phone,
+        bio: form.bio,
+      });
       toast.success("Profile updated successfully");
       setEditing(false);
     } catch {

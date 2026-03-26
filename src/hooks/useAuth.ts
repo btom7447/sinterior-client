@@ -1,105 +1,166 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import { apiGet, apiPost, setToken } from "@/lib/apiClient";
 
-interface Profile {
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface ApiProfile {
+  id: string;
+  fullName: string;
+  avatarUrl: string | null;
+  city: string;
+  state: string;
+}
+
+interface ApiUser {
+  id: string;
+  email: string;
+  role: "artisan" | "supplier" | "client";
+  isEmailVerified: boolean;
+  profile: ApiProfile | null;
+}
+
+// Matches the snake_case shape that existing components already expect
+export interface Profile {
   id: string;
   user_id: string;
   full_name: string;
-  email?: string | null;
+  email: string | null;
   phone: string | null;
   role: "artisan" | "supplier" | "client";
   avatar_url: string | null;
   bio: string | null;
-  created_at: string;
-  updated_at: string;
+  city: string;
+  state: string;
 }
 
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: ApiUser | null;
   profile: Profile | null;
   loading: boolean;
 }
 
+// ── Shape the raw API user into the snake_case profile components expect ──────
+function toProfile(user: ApiUser): Profile {
+  return {
+    id: user.profile?.id ?? user.id,
+    user_id: user.id,
+    full_name: user.profile?.fullName ?? "",
+    email: user.email,
+    phone: null,
+    role: user.role,
+    avatar_url: user.profile?.avatarUrl ?? null,
+    bio: null,
+    city: user.profile?.city ?? "",
+    state: user.profile?.state ?? "",
+  };
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
 export const useAuth = () => {
   const [state, setState] = useState<AuthState>({
     user: null,
-    session: null,
     profile: null,
     loading: true,
   });
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-    if (!data) return null;
-    const { data: { user } } = await supabase.auth.getUser();
-    return { ...data, email: user?.email ?? null } as Profile;
+  // On mount: try to restore session using the httpOnly refresh-token cookie
+  const restoreSession = useCallback(async () => {
+    try {
+      const refreshData = await apiPost<{ data: { accessToken: string } }>(
+        "/auth/refresh"
+      );
+      setToken(refreshData.data.accessToken);
+
+      const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
+      const user = meData.data.user;
+      setState({ user, profile: toProfile(user), loading: false });
+    } catch {
+      setToken(null);
+      setState({ user: null, profile: null, loading: false });
+    }
   }, []);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const user = session?.user ?? null;
-        if (user) {
-          setTimeout(async () => {
-            const profile = await fetchProfile(user.id);
-            setState({ user, session, profile, loading: false });
-          }, 0);
-          setState(prev => ({ ...prev, user, session, loading: !prev.profile }));
-        } else {
-          setState({ user: null, session: null, profile: null, loading: false });
-        }
-      }
-    );
+    restoreSession();
+  }, [restoreSession]);
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const user = session?.user ?? null;
-      if (user) {
-        const profile = await fetchProfile(user.id);
-        setState({ user, session, profile, loading: false });
-      } else {
-        setState({ user: null, session: null, profile: null, loading: false });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
-
+  // ── Actions ────────────────────────────────────────────────────────────────
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const data = await apiPost<{ data: { accessToken: string; user: ApiUser } }>(
+      "/auth/login",
+      { email, password }
+    );
+    setToken(data.data.accessToken);
+    const user = data.data.user;
+    setState({ user, profile: toProfile(user), loading: false });
+    return data;
+  };
+
+  const signUp = async (payload: {
+    email: string;
+    password: string;
+    role: string;
+    fullName: string;
+    city: string;
+    state: string;
+  }) => {
+    const data = await apiPost<{ data: { accessToken: string; user: ApiUser } }>(
+      "/auth/register",
+      payload
+    );
+    setToken(data.data.accessToken);
+    const user = data.data.user;
+    setState({ user, profile: toProfile(user), loading: false });
     return data;
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      await apiPost("/auth/logout");
+    } catch {
+      // best-effort — clear client state regardless
+    }
+    setToken(null);
+    setState({ user: null, profile: null, loading: false });
   };
 
+  /** Sends a password reset email (or returns token in dev mode). */
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) throw error;
+    await apiPost("/auth/forgot-password", { email });
   };
 
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw error;
+  /**
+   * Completes the reset flow.
+   * @param token  The raw token from the ?token= query param in the reset link
+   * @param password  The user's new password
+   */
+  const updatePassword = async (token: string, password: string) => {
+    await apiPost(`/auth/reset-password/${token}`, { password });
+  };
+
+  /** Changes password for the currently logged-in user. */
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ) => {
+    const data = await apiPost<{ data: { accessToken: string } }>(
+      "/auth/change-password",
+      { currentPassword, newPassword }
+    );
+    // Server reissues a fresh access token after password change
+    setToken(data.data.accessToken);
   };
 
   return {
-    ...state,
+    user: state.user,
+    profile: state.profile,
+    loading: state.loading,
+    isAuthenticated: !!state.user,
     signIn,
+    signUp,
     signOut,
     resetPassword,
     updatePassword,
-    isAuthenticated: !!state.session,
+    changePassword,
   };
 };

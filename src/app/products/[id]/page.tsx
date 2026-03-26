@@ -186,19 +186,37 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </Button>
             </div>
 
+            {/* Supplier card — populated from supplier onboarding data */}
             <div
-              className="flex items-center gap-3 p-4 rounded-xl bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+              className="rounded-2xl border border-border bg-secondary/30 cursor-pointer hover:bg-secondary/60 transition-colors overflow-hidden"
               onClick={() => router.push(`/seller/${supplierId}`)}
             >
-              <Avatar className="w-11 h-11 border-2 border-primary/20">
-                <AvatarImage src={product.supplierAvatar} />
-                <AvatarFallback>{product.supplier[0]}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{product.supplier}</p>
-                <p className="text-xs text-muted-foreground">{product.location} • Verified Supplier</p>
+              <div className="flex items-center gap-3 p-4 border-b border-border">
+                <Avatar className="w-12 h-12 border-2 border-primary/20 shrink-0">
+                  <AvatarImage src={product.supplierAvatar} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold">{product.supplier[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-bold text-foreground truncate">{product.supplier}</p>
+                    <Shield strokeWidth={1} className="w-3.5 h-3.5 text-success shrink-0" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{product.location} · Construction Materials</p>
+                </div>
+                <ChevronRight strokeWidth={1} className="w-4 h-4 text-muted-foreground shrink-0" />
               </div>
-              <ChevronRight strokeWidth={1} className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div className="grid grid-cols-3 divide-x divide-border">
+                {[
+                  { label: "Products", value: "48" },
+                  { label: "Response", value: "95%" },
+                  { label: "Delivers", value: "Nationwide" },
+                ].map((s) => (
+                  <div key={s.label} className="px-3 py-2.5 text-center">
+                    <p className="text-sm font-bold text-foreground">{s.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

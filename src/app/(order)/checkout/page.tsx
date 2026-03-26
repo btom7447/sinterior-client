@@ -34,7 +34,7 @@ export default function CheckoutPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto pb-28">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center gap-3">
           <button onClick={() => router.back()} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
@@ -100,8 +100,8 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Bottom CTA */}
-        <div className="fixed bottom-16 sm:bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3 z-40 max-w-5xl mx-auto">
+        {/* CTA */}
+        <div className="border-t border-border px-4 py-4">
           <Button className="w-full rounded-xl font-semibold" disabled={loading} onClick={handleOrder}>
             {loading ? "Placing Order..." : `Place Order • ₦${totalPrice.toLocaleString()}`}
           </Button>
