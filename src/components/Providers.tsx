@@ -3,6 +3,7 @@ import { useEffect, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CartProvider } from "@/contexts/CartContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import { setToken } from "@/lib/apiClient";
 
@@ -40,11 +41,13 @@ function AuthGuard() {
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-        <AuthGuard />
-        <Toaster />
-        {children}
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AuthGuard />
+          <Toaster />
+          {children}
+        </CartProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
