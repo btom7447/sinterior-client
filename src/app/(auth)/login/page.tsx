@@ -1,22 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-export default function Login() {
+function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const sessionExpired = searchParams.get("session") === "expired";
+  const nextUrl = searchParams.get("next");
+
+  useEffect(() => {
+    if (sessionExpired) {
+      toast.warning("Your session expired. Please sign in again.");
+    }
+  }, [sessionExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +34,11 @@ export default function Login() {
     try {
       await signIn(email, password);
       toast.success("Welcome back!");
-      router.push("/home");
-    } catch (error: any) {
-      toast.error(error.message || "Invalid email or password");
+      // Return to where they were, or default to home
+      router.push(nextUrl ? decodeURIComponent(nextUrl) : "/");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Invalid email or password";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +60,13 @@ export default function Login() {
             </div>
             <span className="font-display font-bold text-xl text-foreground">Sinterior</span>
           </div>
+
+          {sessionExpired && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-6">
+              <AlertCircle strokeWidth={1.5} className="w-4 h-4 shrink-0" />
+              Your session has expired. Please sign in again.
+            </div>
+          )}
 
           <div className="mb-8">
             <h1 className="font-display text-3xl font-bold text-foreground mb-2">Welcome back</h1>
@@ -90,7 +109,9 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff strokeWidth={1} className="w-5 h-5" /> : <Eye strokeWidth={1} className="w-5 h-5" />}
+                  {showPassword
+                    ? <EyeOff strokeWidth={1} className="w-5 h-5" />
+                    : <Eye strokeWidth={1} className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -127,5 +148,13 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
