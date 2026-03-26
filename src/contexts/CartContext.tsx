@@ -6,16 +6,26 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { Product } from "@/data/products";
+// Minimal shape the cart needs — both Product and ProductCardItem satisfy this
+export interface CartProduct {
+  id: number;
+  name: string;
+  price: string;
+  image: string;
+  inStock?: boolean;
+  badge?: string | null;
+  unit?: string;
+  supplier?: string;
+}
 
 export interface CartItem {
-  product: Product;
+  product: CartProduct;
   quantity: number;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: CartProduct, quantity?: number) => void;
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
@@ -44,7 +54,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const addToCart = (product: Product, quantity = 1) => {
+  const addToCart = (product: CartProduct, quantity = 1) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing)
