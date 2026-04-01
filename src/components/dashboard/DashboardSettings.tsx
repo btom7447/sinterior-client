@@ -1,31 +1,67 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Moon, Shield, RefreshCw, MapPin, Flame, Eye, EyeOff, Lock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { apiGet, apiPatch } from "@/lib/apiClient";
 import { toast } from "sonner";
+
+interface Settings {
+  notifications: boolean;
+  darkMode: boolean;
+  autoRenew: boolean;
+  landRegistry: boolean;
+  landInsurance: boolean;
+  fireAlarm: boolean;
+}
+
+const defaults: Settings = {
+  notifications: true,
+  darkMode: false,
+  autoRenew: true,
+  landRegistry: true,
+  landInsurance: true,
+  fireAlarm: false,
+};
 
 const DashboardSettings = () => {
   const { changePassword } = useAuth();
 
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: false,
-    autoRenew: true,
-    landRegistry: true,
-    landInsurance: true,
-    fireAlarm: false,
-  });
+  const [settings, setSettings] = useState<Settings>(defaults);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [showPw, setShowPw] = useState({ current: false, next: false });
   const [savingPw, setSavingPw] = useState(false);
 
-  const toggle = (key: keyof typeof settings) =>
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Load settings from API on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiGet<{ data: { settings: Settings } }>("/profiles/me/settings");
+        if (res.data.settings) setSettings({ ...defaults, ...res.data.settings });
+      } catch {
+        // use defaults
+      } finally {
+        setLoadingSettings(false);
+      }
+    })();
+  }, []);
+
+  const toggle = async (key: keyof Settings) => {
+    const newValue = !settings[key];
+    setSettings((prev) => ({ ...prev, [key]: newValue }));
+    try {
+      await apiPatch("/profiles/me/settings", { [key]: newValue });
+    } catch {
+      // revert on failure
+      setSettings((prev) => ({ ...prev, [key]: !newValue }));
+      toast.error("Failed to save setting");
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +113,13 @@ const DashboardSettings = () => {
         </p>
       </div>
 
-      {settingSections.map((section) => (
+      {loadingSettings ? (
+        <div className="card-elevated p-6 animate-pulse space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-12 bg-muted rounded-lg" />
+          ))}
+        </div>
+      ) : settingSections.map((section) => (
         <div key={section.title} className="card-elevated p-6">
           <h2 className="font-display text-lg font-bold text-foreground mb-4">{section.title}</h2>
           <div className="space-y-1">
