@@ -38,7 +38,7 @@ const RolesSection = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16" data-aos="fade-up">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">One Platform, Multiple Roles</h2>
-          <p className="text-muted-foreground text-lg">Whether you&apos;re building, selling, or providing services, Sinterior has the tools you need.</p>
+          <p className="text-muted-foreground text-lg">Whether you&apos;re building, selling, or providing services, Sintherior has the tools you need.</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
@@ -63,7 +63,7 @@ const RolesSection = () => {
                 ))}
               </ul>
               <Link href={role.href}>
-                <Button variant="outline" className="w-full rounded-xl group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
+                <Button className="w-full rounded-xl border border-primary bg-transparent hover:bg-primary text-primary hover:text-white transition-colors">
                   {role.cta} <ArrowRight strokeWidth={1} className="w-4 h-4 ml-2" />
                 </Button>
               </Link>

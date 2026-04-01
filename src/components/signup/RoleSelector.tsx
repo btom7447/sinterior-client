@@ -38,7 +38,7 @@ const RoleSelector = ({ selectedRole, onSelectRole }: RoleSelectorProps) => {
   return (
     <>
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-foreground mb-2">Join Sinterior</h1>
+        <h1 className="font-display text-3xl font-bold text-foreground mb-2">Join Sintherior</h1>
         <p className="text-muted-foreground">Choose how you want to use the platform</p>
       </div>
 

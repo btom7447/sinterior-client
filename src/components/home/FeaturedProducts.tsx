@@ -1,35 +1,84 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
-import ProductCard, { type ProductCardItem } from "@/components/products/ProductCard";
-
-const featuredProducts: ProductCardItem[] = [
-  { id: 1, name: "Premium Cement (50kg)", category: "Building Materials", image: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80", price: "₦5,500", originalPrice: "₦6,000", rating: 4.8, seller: "BuildMart Supplies", inStock: true },
-  { id: 2, name: "Steel Reinforcement Bars", category: "Construction Steel", image: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=400&q=80", price: "₦285,000", originalPrice: null, rating: 4.9, seller: "MetalWorks Nigeria", inStock: true },
-  { id: 3, name: "Ceramic Floor Tiles (m²)", category: "Tiles & Flooring", image: "https://images.unsplash.com/photo-1615971677499-5467cbab01c0?w=400&q=80", price: "₦8,200", originalPrice: "₦9,500", rating: 4.7, seller: "TileHub Express", inStock: true },
-  { id: 4, name: "Industrial Paint (20L)", category: "Paints & Finishes", image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80", price: "₦45,000", originalPrice: null, rating: 4.6, seller: "ColorCraft Paints", inStock: true },
-];
+import { Skeleton } from "@/components/ui/skeleton";
+import ProductCard from "@/components/products/ProductCard";
+import { apiGet } from "@/lib/apiClient";
+import { type ApiProduct } from "@/types/api";
 
 const FeaturedProducts = () => {
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiGet<{ data: ApiProduct[] }>("/products?limit=4");
+        setProducts(data.data || []);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   return (
     <section className="section-padding bg-secondary/30">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10" data-aos="fade-up">
+        <div
+          className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10"
+          data-aos="fade-up"
+        >
           <div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">Construction Materials</h2>
-            <p className="text-muted-foreground">Quality materials from trusted suppliers at competitive prices</p>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
+              Construction Materials
+            </h2>
+            <p className="text-muted-foreground">
+              Quality materials from trusted suppliers at competitive prices
+            </p>
           </div>
-          <Link href="/products">
-            <Button variant="ghost" className="text-primary hover:text-primary/80">
-              Browse Products <ArrowRight strokeWidth={1} className="w-4 h-4 ml-2" />
-            </Button>
+          <Link
+            href="/products"
+            className="hidden sm:flex items-center gap-2 text-primary font-semibold hover:underline"
+          >
+            Browse Products <ArrowRight strokeWidth={1} className="w-6 h-6" />
           </Link>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredProducts.map((product, i) => (
-            <ProductCard key={product.id} product={product} animationDelay={i * 100} />
-          ))}
+          {loading ? (
+            [...Array(4)].map((_, i) => (
+              <div key={i} className="card-interactive overflow-hidden bg-card">
+                <Skeleton className="w-full h-48" />
+                <div className="p-4 space-y-3">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-6 w-1/3" />
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                </div>
+              </div>
+            ))
+          ) : products.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Package strokeWidth={1} className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="font-display font-semibold text-lg text-foreground mb-1">No products yet</h3>
+              <p className="text-muted-foreground text-sm max-w-xs mb-4">
+                Construction materials will appear here once suppliers list their products.
+              </p>
+              <Link href="/products">
+                <Button variant="outline" className="rounded-xl">Browse Products</Button>
+              </Link>
+            </div>
+          ) : (
+            products.map((product, i) => (
+              <ProductCard key={product._id} product={product} animationDelay={i * 100} />
+            ))
+          )}
         </div>
       </div>
     </section>

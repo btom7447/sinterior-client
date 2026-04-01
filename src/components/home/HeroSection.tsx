@@ -87,7 +87,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-lg text-muted-foreground leading-relaxed mb-8 max-w-xl">
-              Sinterior connects you with verified construction professionals, premium suppliers, and everything you need to bring your building projects to life.
+              Sintherior connects you with verified construction professionals, premium suppliers, and everything you need to bring your building projects to life.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8">

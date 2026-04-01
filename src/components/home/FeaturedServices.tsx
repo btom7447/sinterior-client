@@ -1,38 +1,83 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import ArtisanCard from "@/components/artisan/ArtisanCard";
-import type { ArtisanSearchResult } from "@/hooks/useArtisanSearch";
-
-const services: ArtisanSearchResult[] = [
-  { id: "1", profile_id: "1", full_name: "Emmanuel Okonkwo", avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80", skill: "Master Electrician", skill_category: "electrical", city: "Lagos", state: "Lagos", price_per_day: 15000, currency: "NGN", is_verified: true, completed_jobs: 87, rating: 4.9, review_count: 127, distance_km: null },
-  { id: "2", profile_id: "2", full_name: "Chidinma Eze", avatar_url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80", skill: "Interior Painter", skill_category: "painting", city: "Abuja", state: "FCT", price_per_day: 12000, currency: "NGN", is_verified: true, completed_jobs: 62, rating: 4.8, review_count: 89, distance_km: null },
-  { id: "3", profile_id: "3", full_name: "Adebayo Johnson", avatar_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80", skill: "Plumbing Expert", skill_category: "plumbing", city: "Port Harcourt", state: "Rivers", price_per_day: 18000, currency: "NGN", is_verified: true, completed_jobs: 104, rating: 4.7, review_count: 156, distance_km: null },
-  { id: "4", profile_id: "4", full_name: "Ngozi Amadi", avatar_url: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&q=80", skill: "Tile & Floor Specialist", skill_category: "tiling", city: "Enugu", state: "Enugu", price_per_day: 20000, currency: "NGN", is_verified: true, completed_jobs: 48, rating: 5.0, review_count: 64, distance_km: null },
-];
+import { apiGet } from "@/lib/apiClient";
+import { type ApiArtisan, type Pagination } from "@/types/api";
 
 const FeaturedServices = () => {
+  const [artisans, setArtisans] = useState<ApiArtisan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiGet<{ data: ApiArtisan[]; pagination: Pagination }>("/artisans?limit=4");
+        setArtisans(data.data || []);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   return (
     <section className="section-padding">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10" data-aos="fade-up">
           <div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">Top-Rated Artisans</h2>
-            <p className="text-muted-foreground">Verified professionals ready to bring your projects to life</p>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-2">
+              Top-Rated Artisans
+            </h2>
+            <p className="text-muted-foreground">
+              Verified professionals ready to bring your projects to life
+            </p>
           </div>
-          <Link href="/artisan">
-            <Button variant="ghost" className="text-primary hover:text-primary/80">
-              View All Artisans <ArrowRight strokeWidth={1} className="w-4 h-4 ml-2" />
-            </Button>
+          <Link href="/artisan" className="hidden sm:flex items-center gap-2 text-primary font-semibold hover:underline">
+            View all <ArrowRight strokeWidth={1} className="w-6 h-6" />
           </Link>
         </div>
+
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {services.map((artisan, i) => (
-            <div key={artisan.id} data-aos="fade-up" data-aos-delay={i * 100}>
-              <ArtisanCard artisan={artisan} />
+          {loading ? (
+            [...Array(4)].map((_, i) => (
+              <div key={i} className="card-interactive overflow-hidden">
+                <Skeleton className="w-full h-48" />
+                <div className="p-5 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <div className="pt-4 border-t border-border flex justify-between">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-9 w-20" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : artisans.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Wrench strokeWidth={1} className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="font-display font-semibold text-lg text-foreground mb-1">No artisans yet</h3>
+              <p className="text-muted-foreground text-sm max-w-xs mb-4">
+                Skilled professionals will appear here once they join the platform.
+              </p>
+              <Link href="/artisan">
+                <Button variant="outline" className="rounded-xl">Browse Artisans</Button>
+              </Link>
             </div>
-          ))}
+          ) : (
+            artisans.map((artisan, i) => (
+              <div key={artisan._id} data-aos="fade-up" data-aos-delay={i * 100}>
+                <ArtisanCard artisan={artisan} />
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>
