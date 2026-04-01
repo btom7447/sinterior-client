@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { apiGet, apiPost, setToken } from "@/lib/apiClient";
+import { assetUrl } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ApiProfile {
@@ -78,7 +79,7 @@ function toProfile(user: ApiUser): Profile {
     email: user.email,
     phone: user.profile?.phone ?? null,
     role: user.role,
-    avatar_url: user.profile?.avatarUrl ?? null,
+    avatar_url: assetUrl(user.profile?.avatarUrl) ?? null,
     bio: user.profile?.bio ?? null,
     city: user.profile?.city ?? "",
     state: user.profile?.state ?? "",

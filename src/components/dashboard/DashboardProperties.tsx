@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Building2,
@@ -237,7 +238,7 @@ export default function DashboardProperties() {
             <div key={p._id} className="card-elevated overflow-hidden">
               <div className="h-40 bg-secondary flex items-center justify-center">
                 {p.images?.[0] ? (
-                  <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
+                  <img src={resolveAssetUrl(p.images[0])} alt={p.title} className="w-full h-full object-cover" />
                 ) : (
                   <Building2 className="w-10 h-10 text-muted-foreground/40" strokeWidth={1} />
                 )}

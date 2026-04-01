@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -88,7 +89,7 @@ export default function DashboardReviews() {
             <div key={review._id} className="card-elevated p-4">
               <div className="flex items-start gap-3">
                 <Avatar className="w-9 h-9 shrink-0">
-                  <AvatarImage src={review.reviewerId?.avatarUrl || ""} />
+                  <AvatarImage src={resolveAssetUrl(review.reviewerId?.avatarUrl || "")} />
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{review.reviewerId?.fullName?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">

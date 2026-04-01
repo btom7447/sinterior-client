@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Heart, MapPin, Bed, Bath, Maximize } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { type ApiProperty, formatNaira, getPrimaryImage } from "@/types/api";
+import { type ApiProperty, formatNaira, getPrimaryImage, resolveAssetUrl } from "@/types/api";
 
 interface PropertyCardProps {
   property: ApiProperty;
@@ -81,7 +81,7 @@ export default function PropertyCard({ property, isLiked, onToggleLike }: Proper
             {supplier && (
               <div className="flex items-center gap-2">
                 <Avatar className="w-7 h-7">
-                  <AvatarImage src={supplier.avatarUrl || ""} />
+                  <AvatarImage src={resolveAssetUrl(supplier.avatarUrl || "")} />
                   <AvatarFallback>{supplier.fullName[0]}</AvatarFallback>
                 </Avatar>
                 <span className="text-xs text-muted-foreground truncate max-w-[80px]">{supplier.fullName}</span>

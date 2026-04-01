@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Briefcase,
@@ -193,7 +194,7 @@ export default function DashboardJobs() {
                   <p className="text-sm font-semibold text-foreground truncate">{job.title}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <Avatar className="w-4 h-4">
-                      <AvatarImage src={otherParty?.avatarUrl || ""} />
+                      <AvatarImage src={resolveAssetUrl(otherParty?.avatarUrl || "")} />
                       <AvatarFallback className="text-[8px]">{otherParty?.fullName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <span className="text-xs text-muted-foreground truncate">{otherParty?.fullName}</span>

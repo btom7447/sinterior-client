@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import { Heart, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,7 +75,7 @@ export default function DashboardSaved() {
             <div key={bm._id} className="card-elevated p-4">
               <div className="flex items-center gap-3">
                 <Avatar className="w-12 h-12">
-                  <AvatarImage src={bm.artisanId?.avatarUrl || ""} />
+                  <AvatarImage src={resolveAssetUrl(bm.artisanId?.avatarUrl || "")} />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold">{bm.artisanId?.fullName?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">

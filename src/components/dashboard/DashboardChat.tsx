@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useChat, useMessages, type Conversation, type SearchResult } from "@/hooks/useChat";
+import { resolveAssetUrl } from "@/types/api";
 import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -152,7 +153,7 @@ export default function DashboardChat() {
                   className="w-full flex items-center gap-3 p-3 text-left rounded-xl hover:bg-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Avatar className="w-9 h-9 shrink-0">
-                    <AvatarImage src={user.avatarUrl || ""} />
+                    <AvatarImage src={resolveAssetUrl(user.avatarUrl || "")} />
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">{user.fullName.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
@@ -210,7 +211,7 @@ export default function DashboardChat() {
                 >
                   <div className="relative shrink-0">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={convo.participant?.avatarUrl || ""} />
+                      <AvatarImage src={resolveAssetUrl(convo.participant?.avatarUrl || "")} />
                       <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
                         {convo.participant?.fullName?.charAt(0) || "?"}
                       </AvatarFallback>
@@ -266,7 +267,7 @@ export default function DashboardChat() {
               </button>
               <div className="relative">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src={activeConvo.participant?.avatarUrl || ""} />
+                  <AvatarImage src={resolveAssetUrl(activeConvo.participant?.avatarUrl || "")} />
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                     {activeConvo.participant?.fullName?.charAt(0) || "?"}
                   </AvatarFallback>
