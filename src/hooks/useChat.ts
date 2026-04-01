@@ -1,106 +1,362 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { io, Socket } from "socket.io-client";
+import { apiGet } from "@/lib/apiClient";
 import { useAuth } from "./useAuth";
 
-export interface Conversation {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:5000";
+
+export interface Participant {
   id: string;
-  participant_one: string;
-  participant_two: string;
-  last_message_text: string | null;
-  last_message_at: string | null;
-  created_at: string;
-  other_user?: { full_name: string; avatar_url: string | null; role: string };
-  unread_count: number;
+  fullName: string;
+  avatarUrl: string | null;
 }
 
-export interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  is_read: boolean;
-  created_at: string;
+export interface Conversation {
+  conversationId: string;
+  lastMessage: { content: string; createdAt: string; senderId: string; isRead?: boolean } | null;
+  unreadCount: number;
+  participant: Participant | null;
 }
+
+export interface ChatMessage {
+  _id: string;
+  conversationId: string;
+  senderId: { _id: string; fullName: string; avatarUrl: string | null } | string;
+  receiverId: { _id: string; fullName: string; avatarUrl: string | null } | string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface SearchResult {
+  _id: string;
+  fullName: string;
+  avatarUrl: string | null;
+  city?: string;
+  canChat: boolean;
+}
+
+// Get the access token from the apiClient module
+let getToken: (() => string | null) | null = null;
+
+async function loadToken() {
+  if (!getToken) {
+    const mod = await import("@/lib/apiClient");
+    getToken = (mod as any).getToken || (() => null);
+  }
+  return getToken?.() ?? null;
+}
+
+// ── Singleton socket connection ──────────────────────────────────────────────
+
+let socket: Socket | null = null;
+let socketRefCount = 0;
+
+function getSocket(token: string): Socket {
+  if (!socket || socket.disconnected) {
+    socket = io(API_BASE, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+  }
+  socketRefCount++;
+  return socket;
+}
+
+function releaseSocket() {
+  socketRefCount--;
+  if (socketRefCount <= 0 && socket) {
+    socket.disconnect();
+    socket = null;
+    socketRefCount = 0;
+  }
+}
+
+// ── useChat — conversation list + socket events ─────────────────────────────
 
 export const useChat = () => {
-  const { user } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const socketRef = useRef<Socket | null>(null);
+
+  const myProfileId = profile?.id;
 
   const fetchConversations = useCallback(async () => {
-    if (!user) { setConversations([]); setLoading(false); return; }
-    const { data: convos } = await supabase.from("conversations").select("*").or(`participant_one.eq.${user.id},participant_two.eq.${user.id}`).order("last_message_at", { ascending: false });
-    if (!convos) { setLoading(false); return; }
-    const otherUserIds = convos.map(c => c.participant_one === user.id ? c.participant_two : c.participant_one);
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, avatar_url, role").in("user_id", otherUserIds);
-    const { data: unreadData } = await supabase.from("messages").select("conversation_id").in("conversation_id", convos.map(c => c.id)).neq("sender_id", user.id).eq("is_read", false);
-    const unreadMap: Record<string, number> = {};
-    unreadData?.forEach(m => { unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1; });
-    const profileMap = new Map(profiles?.map(p => [p.user_id, p]));
-    const enriched: Conversation[] = convos.map(c => {
-      const otherId = c.participant_one === user.id ? c.participant_two : c.participant_one;
-      const prof = profileMap.get(otherId);
-      return { ...c, other_user: prof ? { full_name: prof.full_name, avatar_url: prof.avatar_url, role: prof.role } : undefined, unread_count: unreadMap[c.id] || 0 };
-    });
-    setConversations(enriched);
-    setTotalUnread(Object.values(unreadMap).reduce((a, b) => a + b, 0));
-    setLoading(false);
-  }, [user]);
+    if (!isAuthenticated) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await apiGet<{ data: { conversations: Conversation[] } }>("/chat/conversations");
+      const convos = res.data.conversations || [];
+      setConversations(convos);
+      setTotalUnread(convos.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
+  // Connect socket
   useEffect(() => {
-    if (!user) return;
+    if (!isAuthenticated) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
+    const connect = async () => {
+      const token = await loadToken();
+      if (!token || !mounted) return;
+
+      const s = getSocket(token);
+      socketRef.current = s;
+
+      s.on("connect", () => {
+        if (mounted) setConnected(true);
+      });
+
+      s.on("disconnect", () => {
+        if (mounted) setConnected(false);
+      });
+
+      // Listen for new messages to update conversation list
+      s.on("conversation:updated", (data: any) => {
+        if (!mounted) return;
+        setConversations((prev) => {
+          const exists = prev.find((c) => c.conversationId === data.conversationId);
+          if (exists) {
+            return prev
+              .map((c) =>
+                c.conversationId === data.conversationId
+                  ? { ...c, lastMessage: data.lastMessage, unreadCount: c.unreadCount + 1 }
+                  : c
+              )
+              .sort((a, b) => {
+                const aTime = a.lastMessage?.createdAt || "";
+                const bTime = b.lastMessage?.createdAt || "";
+                return bTime.localeCompare(aTime);
+              });
+          }
+          // New conversation
+          return [
+            {
+              conversationId: data.conversationId,
+              lastMessage: data.lastMessage,
+              unreadCount: 1,
+              participant: data.participant,
+            },
+            ...prev,
+          ];
+        });
+        setTotalUnread((prev) => prev + 1);
+      });
+
+      // Online/offline tracking
+      s.on("user:online", ({ profileId }: { profileId: string }) => {
+        if (mounted) setOnlineUsers((prev) => new Set(prev).add(profileId));
+      });
+
+      s.on("user:offline", ({ profileId }: { profileId: string }) => {
+        if (mounted)
+          setOnlineUsers((prev) => {
+            const next = new Set(prev);
+            next.delete(profileId);
+            return next;
+          });
+      });
+
+      // Read receipts — update unread count
+      s.on("message:read", ({ conversationId }: { conversationId: string }) => {
+        if (mounted) {
+          setConversations((prev) =>
+            prev.map((c) => (c.conversationId === conversationId ? { ...c, unreadCount: 0 } : c))
+          );
+        }
+      });
+    };
+
     fetchConversations();
-    const channel = supabase.channel("chat-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => fetchConversations())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => fetchConversations())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, fetchConversations]);
+    connect();
 
-  const startConversation = async (otherUserId: string) => {
-    if (!user) return null;
-    const { data: existing } = await supabase.from("conversations").select("id").or(`and(participant_one.eq.${user.id},participant_two.eq.${otherUserId}),and(participant_one.eq.${otherUserId},participant_two.eq.${user.id})`).maybeSingle();
-    if (existing) return existing.id;
-    const { data, error } = await supabase.from("conversations").insert({ participant_one: user.id, participant_two: otherUserId }).select("id").single();
-    if (error) throw error;
-    return data.id;
+    return () => {
+      mounted = false;
+      releaseSocket();
+      socketRef.current = null;
+    };
+  }, [isAuthenticated, fetchConversations]);
+
+  // Check online status for all conversation participants
+  useEffect(() => {
+    if (!socketRef.current || !connected || conversations.length === 0) return;
+    const ids = conversations.map((c) => c.participant?.id).filter(Boolean) as string[];
+    socketRef.current.emit("user:check-online", { profileIds: ids }, (statuses: Record<string, boolean>) => {
+      setOnlineUsers(new Set(Object.entries(statuses).filter(([, v]) => v).map(([k]) => k)));
+    });
+  }, [connected, conversations.length]);
+
+  const searchByEmail = useCallback(
+    async (email: string): Promise<SearchResult[]> => {
+      try {
+        const res = await apiGet<{ data: { users: SearchResult[] } }>(`/chat/search?email=${encodeURIComponent(email)}`);
+        return res.data.users || [];
+      } catch {
+        return [];
+      }
+    },
+    []
+  );
+
+  return {
+    conversations,
+    loading,
+    totalUnread,
+    connected,
+    onlineUsers,
+    myProfileId,
+    socket: socketRef.current,
+    refetch: fetchConversations,
+    searchByEmail,
   };
-
-  return { conversations, loading, totalUnread, startConversation, refetch: fetchConversations };
 };
 
-export const useMessages = (conversationId: string | null) => {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
+// ── useMessages — messages for a specific conversation ───────────────────────
 
+export const useMessages = (conversationId: string | null) => {
+  const { isAuthenticated, profile } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [typing, setTyping] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const myProfileId = profile?.id;
+
+  // Load messages from REST API (initial load + pagination)
   const fetchMessages = useCallback(async () => {
-    if (!conversationId) { setMessages([]); setLoading(false); return; }
-    const { data } = await supabase.from("messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
-    setMessages((data as Message[]) || []);
-    setLoading(false);
-    if (user) await supabase.from("messages").update({ is_read: true }).eq("conversation_id", conversationId).neq("sender_id", user.id).eq("is_read", false);
-  }, [conversationId, user]);
+    if (!conversationId || !isAuthenticated) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await apiGet<{ data: ChatMessage[] }>(`/chat/messages/${conversationId}?limit=100`);
+      const msgs = res.data || [];
+      setMessages(msgs.reverse()); // API returns newest first, we want oldest first
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId, isAuthenticated]);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !isAuthenticated) return;
+
+    let mounted = true;
     fetchMessages();
-    const channel = supabase.channel(`messages-${conversationId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        const newMsg = payload.new as Message;
-        setMessages(prev => [...prev, newMsg]);
-        if (user && newMsg.sender_id !== user.id) supabase.from("messages").update({ is_read: true }).eq("id", newMsg.id);
-      }).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [conversationId, user, fetchMessages]);
 
-  const sendMessage = async (content: string) => {
-    if (!conversationId || !user || !content.trim()) return;
-    await supabase.from("messages").insert({ conversation_id: conversationId, sender_id: user.id, content: content.trim() });
-    await supabase.from("conversations").update({ last_message_text: content.trim(), last_message_at: new Date().toISOString() }).eq("id", conversationId);
-  };
+    const connect = async () => {
+      const token = await loadToken();
+      if (!token || !mounted) return;
 
-  return { messages, loading, sendMessage };
+      const s = getSocket(token);
+      socketRef.current = s;
+
+      // Listen for new messages in this conversation
+      const handleNewMessage = (msg: ChatMessage) => {
+        if (msg.conversationId !== conversationId || !mounted) return;
+        setMessages((prev) => {
+          // Deduplicate
+          if (prev.some((m) => m._id === msg._id)) return prev;
+          return [...prev, msg];
+        });
+        // Auto mark as read if we're viewing this conversation
+        const senderId = typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+        if (senderId !== myProfileId) {
+          s.emit("message:read", { conversationId });
+        }
+      };
+
+      s.on("message:new", handleNewMessage);
+
+      // Typing indicators
+      s.on("typing:start", ({ conversationId: cid }: { conversationId: string }) => {
+        if (cid === conversationId && mounted) setTyping(true);
+      });
+      s.on("typing:stop", ({ conversationId: cid }: { conversationId: string }) => {
+        if (cid === conversationId && mounted) setTyping(false);
+      });
+
+      // Mark existing messages as read
+      s.emit("message:read", { conversationId });
+
+      return () => {
+        s.off("message:new", handleNewMessage);
+      };
+    };
+
+    const cleanup = connect();
+
+    return () => {
+      mounted = false;
+      cleanup?.then((fn) => fn?.());
+      releaseSocket();
+      socketRef.current = null;
+    };
+  }, [conversationId, isAuthenticated, fetchMessages, myProfileId]);
+
+  const sendMessage = useCallback(
+    async (content: string, receiverId: string) => {
+      if (!content.trim() || !receiverId) return;
+
+      const s = socketRef.current;
+      if (!s?.connected) return;
+
+      return new Promise<ChatMessage | null>((resolve) => {
+        s.emit("message:send", { receiverId, content: content.trim() }, (response: any) => {
+          if (response?.error) {
+            resolve(null);
+            return;
+          }
+          if (response?.message) {
+            setMessages((prev) => {
+              if (prev.some((m) => m._id === response.message._id)) return prev;
+              return [...prev, response.message];
+            });
+          }
+          resolve(response?.message || null);
+        });
+      });
+    },
+    []
+  );
+
+  const emitTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!conversationId || !socketRef.current) return;
+      socketRef.current.emit(isTyping ? "typing:start" : "typing:stop", { conversationId });
+      if (isTyping) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+          socketRef.current?.emit("typing:stop", { conversationId });
+        }, 3000);
+      }
+    },
+    [conversationId]
+  );
+
+  return { messages, loading, typing, sendMessage, emitTyping, refetch: fetchMessages };
 };
