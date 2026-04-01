@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Check, CheckCheck, Trash2, Info, ShoppingBag, Star, CreditCard } from "lucide-react";
+import { Bell, CheckCheck, Info, ShoppingBag, Star, CreditCard } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,11 +28,9 @@ const typeColors: Record<string, string> = {
 const NotificationItem = ({
   notification,
   onRead,
-  onDelete,
 }: {
   notification: Notification;
   onRead: (id: string) => void;
-  onDelete: (id: string) => void;
 }) => {
   const Icon = typeIcons[notification.type] || Info;
   const color = typeColors[notification.type] || typeColors.info;
@@ -41,9 +39,9 @@ const NotificationItem = ({
     <div
       className={cn(
         "flex gap-3 p-3 rounded-xl transition-colors cursor-pointer group",
-        notification.is_read ? "opacity-60" : "bg-secondary/50"
+        notification.isRead ? "opacity-60" : "bg-secondary/50"
       )}
-      onClick={() => !notification.is_read && onRead(notification.id)}
+      onClick={() => !notification.isRead && onRead(notification._id)}
     >
       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0", color)}>
         <Icon className="w-4 h-4" strokeWidth={1} />
@@ -52,24 +50,15 @@ const NotificationItem = ({
         <p className="text-sm font-medium text-foreground">{notification.title}</p>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notification.message}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
         </p>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(notification.id);
-        }}
-        className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
-      >
-        <Trash2 className="w-3.5 h-3.5" strokeWidth={1} />
-      </button>
     </div>
   );
 };
 
 const NotificationBell = () => {
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, deleteNotification } =
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
     useNotifications();
 
   return (
@@ -111,10 +100,9 @@ const NotificationBell = () => {
             ) : (
               notifications.map((n) => (
                 <NotificationItem
-                  key={n.id}
+                  key={n._id}
                   notification={n}
                   onRead={markAsRead}
-                  onDelete={deleteNotification}
                 />
               ))
             )}

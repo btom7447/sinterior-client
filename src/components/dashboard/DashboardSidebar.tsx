@@ -15,6 +15,7 @@ import {
   Package,
   User,
   LogOut,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ const menuItems = {
     { title: "Appointments", url: "/dashboard/appointments", icon: FileText },
     { title: "Earnings", url: "/dashboard/earnings", icon: BarChart3 },
     { title: "Reviews", url: "/dashboard/reviews", icon: Users },
+    { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ],
@@ -50,6 +52,7 @@ const menuItems = {
     { title: "Orders", url: "/dashboard/orders", icon: ShoppingBag },
     { title: "Earnings", url: "/dashboard/earnings", icon: BarChart3 },
     { title: "Inventory", url: "/dashboard/inventory", icon: FileText },
+    { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ],
@@ -59,6 +62,7 @@ const menuItems = {
     { title: "My Projects", url: "/dashboard/projects", icon: Building2 },
     { title: "Saved Artisans", url: "/dashboard/saved", icon: Users },
     { title: "Properties", url: "/dashboard/properties", icon: Home },
+    { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ],
@@ -88,16 +92,16 @@ export function DashboardSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <Wrench className="w-4 h-4 text-sidebar-primary-foreground" strokeWidth={1} />
+        <Link href="/" className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+            <span className="text-primary-foreground font-display font-bold text-base">S</span>
           </div>
           {!collapsed && (
             <span className="font-display text-lg font-bold text-sidebar-foreground">
               Sintherior
             </span>
           )}
-        </div>
+        </Link>
       </div>
 
       <SidebarContent>

@@ -1,57 +1,81 @@
 "use client";
-import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight } from "lucide-react";
+
+import { useEffect, useState } from "react";
+import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { apiGet } from "@/lib/apiClient";
+import Link from "next/link";
 
-const barData = [
-  { month: "Jan", income: 320, expenses: 180 },
-  { month: "Feb", income: 450, expenses: 220 },
-  { month: "Mar", income: 380, expenses: 190 },
-  { month: "Apr", income: 520, expenses: 280 },
-  { month: "May", income: 410, expenses: 210 },
-  { month: "Jun", income: 600, expenses: 340 },
-];
+interface Stats {
+  [key: string]: number | undefined;
+}
 
-const pieData = [
-  { name: "Completed", value: 65 },
-  { name: "In Progress", value: 20 },
-  { name: "Pending", value: 15 },
-];
+interface RecentOrder {
+  _id: string;
+  items: { name: string; quantity: number; priceAtOrder: number }[];
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+}
 
-const PIE_COLORS = [
-  "hsl(152, 69%, 40%)",
-  "hsl(25, 95%, 53%)",
-  "hsl(38, 92%, 50%)",
-];
-
-const upcomingPayments = [
-  { name: "Site Inspection", type: "Service", date: "Mar 20", amount: "₦45,000", status: "Due" },
-  { name: "Steel Bars Order", type: "Product", date: "Mar 22", amount: "₦285,000", status: "Pending" },
-  { name: "Cement Bulk x50", type: "Product", date: "Mar 25", amount: "₦190,000", status: "Upcoming" },
-  { name: "Interior Painting", type: "Service", date: "Mar 28", amount: "₦120,000", status: "Upcoming" },
-];
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-warning/10 text-warning",
+  confirmed: "bg-primary/10 text-primary",
+  shipped: "bg-accent/10 text-accent",
+  delivered: "bg-success/10 text-success",
+  cancelled: "bg-destructive/10 text-destructive",
+};
 
 const DashboardOverview = () => {
   const { profile } = useAuth();
+  const [stats, setStats] = useState<Stats>({});
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
-    { label: "Total Revenue", value: "₦6,600", change: "+18%", icon: DollarSign, color: "primary" },
-    { label: "Request In Request", value: "6", change: "+3", icon: FileText, color: "warning" },
-    { label: "Subscription Confirmed", value: "4", change: "+2", icon: CheckCircle2, color: "success" },
-    { label: "Closed Request", value: "4", change: "-1", icon: Clock, color: "accent" },
-  ];
+  useEffect(() => {
+    (async () => {
+      try {
+        const [statsRes, ordersRes] = await Promise.all([
+          apiGet<{ data: { stats: Stats } }>("/dashboard/stats"),
+          apiGet<{ data: { orders: RecentOrder[] } }>("/dashboard/recent-orders"),
+        ]);
+        setStats(statsRes.data.stats);
+        setRecentOrders(ordersRes.data.orders);
+      } catch {
+        // silent — dashboard still renders
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const fmt = (n?: number) => `₦${(n || 0).toLocaleString("en-NG")}`;
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-NG", { day: "numeric", month: "short" });
+  const role = profile?.role;
+
+  const statCards =
+    role === "artisan"
+      ? [
+          { label: "Total Jobs", value: String(stats.totalJobs || 0), icon: Briefcase, color: "primary" },
+          { label: "Active Jobs", value: String(stats.activeJobs || 0), icon: FileText, color: "warning" },
+          { label: "Completed", value: String(stats.completedJobs || 0), icon: CheckCircle2, color: "success" },
+          { label: "Avg Rating", value: String(stats.avgRating || 0), icon: Star, color: "accent" },
+        ]
+      : role === "supplier"
+      ? [
+          { label: "Total Revenue", value: fmt(stats.totalRevenue), icon: DollarSign, color: "primary" },
+          { label: "Total Products", value: String(stats.totalProducts || 0), icon: Package, color: "warning" },
+          { label: "Active Products", value: String(stats.activeProducts || 0), icon: CheckCircle2, color: "success" },
+          { label: "Pending Orders", value: String(stats.pendingOrders || 0), icon: Clock, color: "accent" },
+        ]
+      : [
+          { label: "Total Spent", value: fmt(stats.totalSpent), icon: DollarSign, color: "primary" },
+          { label: "Total Orders", value: String(stats.totalOrders || 0), icon: FileText, color: "warning" },
+          { label: "Completed", value: String(stats.completedOrders || 0), icon: CheckCircle2, color: "success" },
+          { label: "Pending", value: String(stats.pendingOrders || 0), icon: Clock, color: "accent" },
+        ];
 
   return (
     <div className="space-y-6">
@@ -61,147 +85,178 @@ const DashboardOverview = () => {
           Welcome, {profile?.full_name?.split(" ")[0] || "User"}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Here's what's happening with your account today.
+          Here&apos;s what&apos;s happening with your account today.
         </p>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="stat-card">
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  stat.color === "primary"
-                    ? "bg-primary/10"
-                    : stat.color === "warning"
-                    ? "bg-warning/10"
-                    : stat.color === "success"
-                    ? "bg-success/10"
-                    : "bg-accent/10"
-                }`}
-              >
-                <stat.icon
-                  className={`w-5 h-5 ${
-                    stat.color === "primary"
-                      ? "text-primary"
-                      : stat.color === "warning"
-                      ? "text-warning"
-                      : stat.color === "success"
-                      ? "text-success"
-                      : "text-accent"
-                  }`}
-                  strokeWidth={1}
-                />
+        {loading
+          ? [...Array(4)].map((_, i) => (
+              <div key={i} className="card-elevated p-4">
+                <Skeleton className="w-10 h-10 rounded-xl mb-3" />
+                <Skeleton className="h-7 w-20 mb-1" />
+                <Skeleton className="h-3 w-16" />
               </div>
-            </div>
-            <p className="font-display text-xl lg:text-2xl font-bold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
-          </div>
-        ))}
+            ))
+          : statCards.map((stat) => (
+              <div key={stat.label} className="card-elevated p-4">
+                <div className="mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      stat.color === "primary"
+                        ? "bg-primary/10"
+                        : stat.color === "warning"
+                        ? "bg-warning/10"
+                        : stat.color === "success"
+                        ? "bg-success/10"
+                        : "bg-accent/10"
+                    }`}
+                  >
+                    <stat.icon
+                      className={`w-5 h-5 ${
+                        stat.color === "primary"
+                          ? "text-primary"
+                          : stat.color === "warning"
+                          ? "text-warning"
+                          : stat.color === "success"
+                          ? "text-success"
+                          : "text-accent"
+                      }`}
+                      strokeWidth={1}
+                    />
+                  </div>
+                </div>
+                <p className="font-display text-xl lg:text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+              </div>
+            ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Bar Chart */}
-        <div className="lg:col-span-2 card-elevated p-6">
-          <h2 className="font-display text-lg font-bold text-foreground mb-4">Total Salary</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 91%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(220 10% 46%)" }} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(220 10% 46%)" }} />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(0 0% 100%)",
-                    border: "1px solid hsl(220 13% 91%)",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 20px -4px rgba(0,0,0,0.1)",
-                  }}
-                />
-                <Bar dataKey="income" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} name="Income" />
-                <Bar dataKey="expenses" fill="hsl(173, 58%, 39%)" radius={[4, 4, 0, 0]} name="Expenses" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* Quick Links */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {role === "artisan" && (
+          <>
+            <Link href="/dashboard/jobs" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Briefcase className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">View Jobs</span>
+            </Link>
+            <Link href="/dashboard/appointments" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Clock className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Appointments</span>
+            </Link>
+            <Link href="/dashboard/reviews" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Star className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Reviews</span>
+            </Link>
+            <Link href="/dashboard/earnings" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Earnings</span>
+            </Link>
+          </>
+        )}
+        {role === "supplier" && (
+          <>
+            <Link href="/dashboard/my-products" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Package className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Products</span>
+            </Link>
+            <Link href="/dashboard/orders" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <FileText className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Orders</span>
+            </Link>
+            <Link href="/dashboard/inventory" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Package className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Inventory</span>
+            </Link>
+            <Link href="/dashboard/earnings" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Earnings</span>
+            </Link>
+          </>
+        )}
+        {role === "client" && (
+          <>
+            <Link href="/dashboard/orders" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <FileText className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">My Orders</span>
+            </Link>
+            <Link href="/dashboard/projects" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Briefcase className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Projects</span>
+            </Link>
+            <Link href="/dashboard/saved" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <Star className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Saved Artisans</span>
+            </Link>
+            <Link href="/dashboard/properties" className="card-elevated p-4 hover:bg-secondary/50 transition-colors flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-primary" strokeWidth={1} />
+              <span className="text-sm font-medium">Properties</span>
+            </Link>
+          </>
+        )}
+      </div>
 
-        {/* Pie Chart */}
-        <div className="card-elevated p-6">
-          <h2 className="font-display text-lg font-bold text-foreground mb-4">Task Summary</h2>
-          <div className="h-48 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-2 mt-2">
-            {pieData.map((item, i) => (
-              <div key={item.name} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
-                <span className="text-muted-foreground">{item.name}</span>
-                <span className="ml-auto font-semibold text-foreground">{item.value}%</span>
+      {/* Recent Orders Table */}
+      <div className="card-elevated p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display text-lg font-bold text-foreground">Recent Orders</h2>
+          <Link href="/dashboard/orders">
+            <Button variant="ghost" size="sm" className="text-primary text-xs">
+              View All <ArrowUpRight className="w-4 h-4 ml-1" strokeWidth={1} />
+            </Button>
+          </Link>
+        </div>
+        {loading ? (
+          <div className="space-y-1">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4 py-3 px-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-4 w-16 ml-auto" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-16 rounded-full" />
               </div>
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Upcoming Payments Table */}
-      <div className="card-elevated p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-bold text-foreground">Upcoming Payments</h2>
-          <Button variant="ghost" size="sm" className="text-primary text-xs">
-            View All <ArrowUpRight className="w-4 h-4 ml-1" strokeWidth={1} />
-          </Button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-2 text-muted-foreground font-medium">Description</th>
-                <th className="text-left py-3 px-2 text-muted-foreground font-medium hidden sm:table-cell">Type</th>
-                <th className="text-left py-3 px-2 text-muted-foreground font-medium">Date</th>
-                <th className="text-right py-3 px-2 text-muted-foreground font-medium">Amount</th>
-                <th className="text-right py-3 px-2 text-muted-foreground font-medium hidden sm:table-cell">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcomingPayments.map((p, i) => (
-                <tr key={i} className="border-b border-border/50 last:border-0">
-                  <td className="py-3 px-2 font-medium text-foreground">{p.name}</td>
-                  <td className="py-3 px-2 text-muted-foreground hidden sm:table-cell">{p.type}</td>
-                  <td className="py-3 px-2 text-muted-foreground">{p.date}</td>
-                  <td className="py-3 px-2 text-right font-semibold text-foreground">{p.amount}</td>
-                  <td className="py-3 px-2 text-right hidden sm:table-cell">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      p.status === "Due" ? "bg-destructive/10 text-destructive" :
-                      p.status === "Pending" ? "bg-warning/10 text-warning" :
-                      "bg-muted text-muted-foreground"
-                    }`}>
-                      {p.status}
-                    </span>
-                  </td>
+        ) : recentOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
+              <ShoppingBag className="w-6 h-6 text-muted-foreground" strokeWidth={1} />
+            </div>
+            <p className="text-sm font-medium text-foreground">No orders yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Your recent purchases will appear here</p>
+            <Link href="/products" className="text-xs text-primary hover:underline mt-3">Browse products</Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-2 text-muted-foreground font-medium">Items</th>
+                  <th className="text-left py-3 px-2 text-muted-foreground font-medium">Date</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">Amount</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentOrders.map((o) => (
+                  <tr key={o._id} className="border-b border-border/50 last:border-0">
+                    <td className="py-3 px-2 font-medium text-foreground truncate max-w-[200px]">
+                      {o.items.map((i) => i.name).join(", ")}
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground">{fmtDate(o.createdAt)}</td>
+                    <td className="py-3 px-2 text-right font-semibold text-foreground">{fmt(o.totalAmount)}</td>
+                    <td className="py-3 px-2 text-right">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[o.status] || "bg-muted text-muted-foreground"}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
