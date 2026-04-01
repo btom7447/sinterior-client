@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useCart } from "@/contexts/CartContext";
 import { apiGet } from "@/lib/apiClient";
-import { type ApiProduct, formatNaira, getPrimaryImage } from "@/types/api";
+import { type ApiProduct, formatNaira, getPrimaryImage, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -72,7 +72,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const images = product.images.length > 0 ? product.images : [getPrimaryImage([])];
+  const images = product.images.length > 0 ? product.images.map(resolveAssetUrl) : [getPrimaryImage([])];
   const supplier = product.supplierId;
   const totalCost = product.price * quantity;
   const specs = product.specs ? Object.entries(product.specs) : [];
@@ -221,7 +221,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               >
                 <div className="flex items-center gap-3 p-4 border-b border-border">
                   <Avatar className="w-12 h-12 border-2 border-primary/20 shrink-0">
-                    <AvatarImage src={supplier.avatarUrl || ""} />
+                    <AvatarImage src={resolveAssetUrl(supplier.avatarUrl || "")} />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">{supplier.fullName[0]}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

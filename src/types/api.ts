@@ -101,6 +101,15 @@ export const formatNaira = (amount: number) =>
 /** Placeholder image when product has no images */
 const PLACEHOLDER = "https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=400&q=80";
 
+/** Resolve a relative upload path to an absolute URL pointing at the API server */
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const SERVER_BASE = API_BASE.replace(/\/api\/v1\/?$/, "");
+
+export function resolveAssetUrl(path: string): string {
+  if (!path || path.startsWith("http")) return path;
+  return `${SERVER_BASE}${path}`;
+}
+
 /** Get the primary image for a product/property */
 export const getPrimaryImage = (images: string[]) =>
-  images.length > 0 ? images[0] : PLACEHOLDER;
+  images.length > 0 ? resolveAssetUrl(images[0]) : PLACEHOLDER;

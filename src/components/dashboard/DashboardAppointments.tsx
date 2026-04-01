@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import { Calendar, Clock, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -119,7 +120,7 @@ export default function DashboardAppointments() {
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <Avatar className="w-4 h-4">
-                        <AvatarImage src={apt.clientId?.avatarUrl || ""} />
+                        <AvatarImage src={resolveAssetUrl(apt.clientId?.avatarUrl || "")} />
                         <AvatarFallback className="text-[8px]">{apt.clientId?.fullName?.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <span className="text-xs text-muted-foreground">{apt.clientId?.fullName}</span>

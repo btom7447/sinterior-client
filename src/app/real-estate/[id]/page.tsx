@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { apiGet, apiPost } from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
-import { type ApiProperty, formatNaira, getPrimaryImage } from "@/types/api";
+import { type ApiProperty, formatNaira, getPrimaryImage, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -91,7 +91,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  const images = property.images.length > 0 ? property.images : [getPrimaryImage([])];
+  const images = property.images.length > 0 ? property.images.map(resolveAssetUrl) : [getPrimaryImage([])];
   const supplier = property.supplierId;
   const statusLabel = property.type === "sale" ? "For Sale" : "For Rent";
   const priceLabel = property.type === "rent" ? "/yr" : "";
@@ -244,7 +244,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 {supplier && (
                   <div className="flex items-center gap-3 mb-3">
                     <Avatar className="w-12 h-12 border-2 border-primary/20 shrink-0">
-                      <AvatarImage src={supplier.avatarUrl || ""} />
+                      <AvatarImage src={resolveAssetUrl(supplier.avatarUrl || "")} />
                       <AvatarFallback className="bg-primary/10 text-primary font-bold">{supplier.fullName[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">

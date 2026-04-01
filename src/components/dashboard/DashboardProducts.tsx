@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/apiClient";
+import { resolveAssetUrl } from "@/types/api";
 import {
   Package,
   Plus,
@@ -208,7 +209,7 @@ export default function DashboardProducts() {
             <div key={p._id} className="card-elevated p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
                 {p.images?.[0] ? (
-                  <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                  <img src={resolveAssetUrl(p.images[0])} alt={p.name} className="w-full h-full object-cover" />
                 ) : (
                   <Package className="w-5 h-5 text-muted-foreground" strokeWidth={1} />
                 )}

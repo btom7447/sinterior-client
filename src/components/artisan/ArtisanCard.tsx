@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Star, MapPin, CheckCircle2, Navigation } from "lucide-react";
-import { type ApiArtisan, formatNaira } from "@/types/api";
+import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 
 interface ArtisanCardProps {
   artisan: ApiArtisan;
@@ -12,7 +12,7 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
   const profile = artisan.profileId;
   const name = profile?.fullName || "Unknown";
   const avatar =
-    profile?.avatarUrl ||
+    resolveAssetUrl(profile?.avatarUrl || "") ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
 
   return (

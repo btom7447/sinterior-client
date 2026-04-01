@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { apiGet } from "@/lib/apiClient";
-import { type ApiProduct, type Pagination, formatNaira, getPrimaryImage } from "@/types/api";
+import { type ApiProduct, type Pagination, formatNaira, getPrimaryImage, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +93,7 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
         <div className="px-4 pt-6 space-y-4">
           <div className="flex items-center gap-3">
             <Avatar className="w-16 h-16 border-2 border-primary/20">
-              <AvatarImage src={supplier.avatarUrl || ""} />
+              <AvatarImage src={resolveAssetUrl(supplier.avatarUrl || "")} />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">{supplier.fullName[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">

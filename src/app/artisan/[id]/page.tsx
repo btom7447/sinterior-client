@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { apiGet, apiPost } from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
-import { type ApiArtisan, formatNaira } from "@/types/api";
+import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,7 +91,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
 
   const artisanProfile = artisan.profileId;
   const name = artisanProfile?.fullName || "Unknown";
-  const avatar = artisanProfile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
+  const avatar = resolveAssetUrl(artisanProfile?.avatarUrl || "") || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
   const bio = artisanProfile?.bio;
   const phone = artisanProfile?.phone;
   const location = artisan.address || `${artisan.city}, ${artisan.state}`;
