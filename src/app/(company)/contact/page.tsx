@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { apiPost } from "@/lib/apiClient";
 
 const contactInfo = [
   {
@@ -52,10 +53,15 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    toast.success("Message sent! We'll get back to you within 24 hours.");
-    setForm({ name: "", email: "", topic: "", message: "" });
+    try {
+      await apiPost("/contact", form);
+      toast.success("Message sent! We'll get back to you within 24 hours.");
+      setForm({ name: "", email: "", topic: "", message: "" });
+    } catch {
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

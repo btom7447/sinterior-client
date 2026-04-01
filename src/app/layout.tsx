@@ -4,7 +4,7 @@ import Providers from "@/components/Providers";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
 export const metadata: Metadata = {
-  title: "Sinterior – Build Better with Trusted Artisans & Quality Materials",
+  title: "Sintherior – Build Better with Trusted Artisans & Quality Materials",
   description:
     "Connect with verified construction professionals, premium suppliers, and everything you need to bring your building projects to life across Nigeria.",
 };

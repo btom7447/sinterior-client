@@ -41,7 +41,7 @@ export default function ForgotPassword() {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-display font-bold text-xl">S</span>
           </div>
-          <span className="font-display font-bold text-xl text-foreground">Sinterior</span>
+          <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
         </div>
 
         {sent ? (

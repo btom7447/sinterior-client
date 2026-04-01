@@ -8,7 +8,7 @@ import {
 } from "react";
 // Minimal shape the cart needs — both Product and ProductCardItem satisfy this
 export interface CartProduct {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   image: string;
@@ -16,6 +16,8 @@ export interface CartProduct {
   badge?: string | null;
   unit?: string;
   supplier?: string;
+  /** MongoDB _id for API products — used at checkout */
+  _id?: string;
 }
 
 export interface CartItem {
@@ -26,8 +28,8 @@ export interface CartItem {
 interface CartContextType {
   items: CartItem[];
   addToCart: (product: CartProduct, quantity?: number) => void;
-  removeFromCart: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  removeFromCart: (productId: number | string) => void;
+  updateQuantity: (productId: number | string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -56,10 +58,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const addToCart = (product: CartProduct, quantity = 1) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
+      const existing = prev.find((i) => String(i.product.id) === String(product.id));
       if (existing)
         return prev.map((i) =>
-          i.product.id === product.id
+          String(i.product.id) === String(product.id)
             ? { ...i, quantity: i.quantity + quantity }
             : i,
         );
@@ -67,16 +69,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const removeFromCart = (productId: number) =>
-    setItems((prev) => prev.filter((i) => i.product.id !== productId));
+  const removeFromCart = (productId: number | string) =>
+    setItems((prev) => prev.filter((i) => String(i.product.id) !== String(productId)));
 
-  const updateQuantity = (productId: number, quantity: number) => {
+  const updateQuantity = (productId: number | string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
     setItems((prev) =>
-      prev.map((i) => (i.product.id === productId ? { ...i, quantity } : i)),
+      prev.map((i) => (String(i.product.id) === String(productId) ? { ...i, quantity } : i)),
     );
   };
 

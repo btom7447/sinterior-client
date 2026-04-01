@@ -1,48 +1,76 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Search, SlidersHorizontal, X, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import CategorySidebar from "@/components/products/CategorySidebar";
 import CategoryProductGrid from "@/components/products/CategoryProductGrid";
-import { products } from "@/data/products";
+import { apiGet } from "@/lib/apiClient";
+import { type ApiProduct, type Pagination } from "@/types/api";
 
-const searchableTerms = [
-  ...products.map((p) => p.name),
-  ...products.map((p) => p.supplier),
+const searchSuggestions = [
   "Cement", "Steel & Iron", "Tiles & Flooring", "Paints", "Aggregates",
   "Electrical", "Plumbing", "Wood & Timber", "Roofing",
   "Lightings & Electrical", "Panels", "Wallpaper", "Doors", "Walls",
-  "Roofing & Ceiling", "Smart Home", "Furniture", "Automobile", "Laundromat",
-  "LED Lights", "Chandeliers", "Switches & Sockets", "Cables",
-  "Wall Panels", "Ceiling Panels", "Acoustic Panels",
-  "Vinyl", "Fabric", "Peel & Stick", "3D Wallpaper",
-  "Wooden Doors", "Steel Doors", "Glass Doors", "PVC Doors",
-  "Paint", "Tiles", "Bricks", "Plaster",
-  "Dangote", "BUA", "Lafarge",
-  "Reinforcement Bars", "Roofing Sheets", "Nails & Bolts",
+  "Roofing & Ceiling", "Smart Home", "Furniture",
+  "LED Lights", "Chandeliers", "Switches & Sockets",
+  "Wall Panels", "Ceiling Panels",
   "Ceramic", "Porcelain", "Granite", "Marble",
-  "Emulsion", "Gloss", "Textured", "Primers",
-  "Long Span", "Step Tiles", "POP Ceiling", "PVC Ceiling",
-  "Automation", "CCTV", "Smart Locks", "Sensors",
-  "Kitchen Furniture", "Bedroom Furniture", "Office Furniture", "Outdoor Furniture",
-  "Pipes", "Fittings", "Taps", "Water Heaters",
 ];
 
-const uniqueTerms = [...new Set(searchableTerms)];
-
 export default function ProductsPage() {
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("For you");
-  const [likedItems, setLikedItems] = useState<Set<number>>(new Set());
+  const [likedItems, setLikedItems] = useState<Set<string>>(new Set());
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 40, total: 0, pages: 0 });
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const toggleLike = (id: number) => {
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "40" });
+
+      // Use category filter if not "For you" and not searching
+      if (selectedCategory !== "For you" && selectedCategory !== "Featured" && selectedCategory !== "Deals" && !debouncedSearch) {
+        params.set("category", selectedCategory);
+      }
+
+      if (debouncedSearch) {
+        params.set("search", debouncedSearch);
+      }
+
+      const data = await apiGet<{ data: ApiProduct[]; pagination: Pagination }>(
+        `/products?${params}`
+      );
+      setProducts(data.data || []);
+      setPagination(data.pagination);
+    } catch {
+      // silent — show empty
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, debouncedSearch]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const toggleLike = (id: string) => {
     setLikedItems((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -51,11 +79,9 @@ export default function ProductsPage() {
     });
   };
 
-  const suggestions = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    return uniqueTerms.filter((t) => t.toLowerCase().includes(q)).slice(0, 8);
-  }, [searchQuery]);
+  const suggestions = searchQuery.trim()
+    ? searchSuggestions.filter((t) => t.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 8)
+    : [];
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -71,15 +97,6 @@ export default function ProductsPage() {
     setSearchQuery(term);
     setShowSuggestions(false);
   };
-
-  const filtered = searchQuery
-    ? products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : products;
 
   return (
     <AppLayout>
@@ -148,7 +165,6 @@ export default function ProductsPage() {
             )}
           </div>
 
-          {/* Mobile categories trigger */}
           <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" className="lg:hidden rounded-xl px-4 gap-2 py-6">
@@ -187,12 +203,40 @@ export default function ProductsPage() {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            <CategoryProductGrid
-              products={filtered}
-              selectedCategory={selectedCategory}
-              likedItems={likedItems}
-              onToggleLike={toggleLike}
-            />
+            {loading ? (
+              <div className="px-3 sm:px-4 py-4">
+                <Skeleton className="h-6 w-40 mb-4" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="card-interactive overflow-hidden">
+                      <Skeleton className="w-full aspect-[4/3]" />
+                      <div className="p-3 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-5 w-1/2" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                  <Package className="w-8 h-8 text-muted-foreground" strokeWidth={1} />
+                </div>
+                <p className="text-sm font-medium text-foreground">No products found</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {debouncedSearch ? "Try a different search term" : "No products available in this category"}
+                </p>
+              </div>
+            ) : (
+              <CategoryProductGrid
+                products={products}
+                selectedCategory={debouncedSearch ? "For you" : selectedCategory}
+                likedItems={likedItems}
+                onToggleLike={toggleLike}
+              />
+            )}
           </div>
         </div>
       </div>

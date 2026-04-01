@@ -4,13 +4,13 @@ import Link from "next/link";
 const sections = [
   {
     title: "1. Acceptance of Terms",
-    content: `By accessing or using Sinterior ("the Platform"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform. These Terms apply to all users, including clients, artisans, suppliers, and visitors.
+    content: `By accessing or using Sintherior ("the Platform"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform. These Terms apply to all users, including clients, artisans, suppliers, and visitors.
 
-Sinterior is operated by Sitam Integrated Resource Limited, a company incorporated under the laws of the Federal Republic of Nigeria.`,
+Sintherior is operated by Sitam Integrated Resource Limited, a company incorporated under the laws of the Federal Republic of Nigeria.`,
   },
   {
     title: "2. Eligibility",
-    content: `You must be at least 18 years old and capable of entering into a legally binding contract to use Sinterior. By creating an account, you represent and warrant that you meet these requirements. We reserve the right to suspend or terminate accounts that we believe are operated by minors or by persons who have provided false registration information.`,
+    content: `You must be at least 18 years old and capable of entering into a legally binding contract to use Sintherior. By creating an account, you represent and warrant that you meet these requirements. We reserve the right to suspend or terminate accounts that we believe are operated by minors or by persons who have provided false registration information.`,
   },
   {
     title: "3. User Accounts",
@@ -20,7 +20,7 @@ You may not share your login credentials, create multiple accounts for the same 
   },
   {
     title: "4. Platform Use",
-    content: `Sinterior provides a marketplace connecting clients with artisans and suppliers. We do not ourselves provide construction services or manufacture/sell construction materials. All contracts for services or products are entered into directly between the relevant users.
+    content: `Sintherior provides a marketplace connecting clients with artisans and suppliers. We do not ourselves provide construction services or manufacture/sell construction materials. All contracts for services or products are entered into directly between the relevant users.
 
 You agree not to use the Platform to:
 • Post false, misleading, or fraudulent content
@@ -31,13 +31,13 @@ You agree not to use the Platform to:
   },
   {
     title: "5. Payments & Escrow",
-    content: `When a client initiates a transaction through Sinterior, funds are held in escrow by our licensed payment partner. Funds are released to the artisan or supplier upon the client's confirmation that work or delivery is satisfactory, or automatically after 7 days if no dispute is raised.
+    content: `When a client initiates a transaction through Sintherior, funds are held in escrow by our licensed payment partner. Funds are released to the artisan or supplier upon the client's confirmation that work or delivery is satisfactory, or automatically after 7 days if no dispute is raised.
 
-Sinterior charges a service fee on completed transactions. Current fee schedules are available in your account settings and may be updated with 30 days' notice.`,
+Sintherior charges a service fee on completed transactions. Current fee schedules are available in your account settings and may be updated with 30 days' notice.`,
   },
   {
     title: "6. Verification & Reviews",
-    content: `Verification badges indicate that a user has passed our identity checks at the time of verification. Verification does not constitute an endorsement of the user's quality of work or products. Sinterior makes no warranty that verified artisans or suppliers will perform to any particular standard.
+    content: `Verification badges indicate that a user has passed our identity checks at the time of verification. Verification does not constitute an endorsement of the user's quality of work or products. Sintherior makes no warranty that verified artisans or suppliers will perform to any particular standard.
 
 Reviews must reflect genuine experiences and may not be incentivised, fabricated, or coerced. We reserve the right to remove reviews that violate our content standards.`,
   },
@@ -45,13 +45,13 @@ Reviews must reflect genuine experiences and may not be incentivised, fabricated
     title: "7. Intellectual Property",
     content: `All content, design, code, and branding on the Platform are the property of Sitam Integrated Resource Limited or its licensors. You may not copy, reproduce, distribute, or create derivative works without our prior written consent.
 
-By uploading content to Sinterior (including photos, text, and logos), you grant us a non-exclusive, royalty-free, worldwide licence to display that content on the Platform and in our marketing materials.`,
+By uploading content to Sintherior (including photos, text, and logos), you grant us a non-exclusive, royalty-free, worldwide licence to display that content on the Platform and in our marketing materials.`,
   },
   {
     title: "8. Limitation of Liability",
-    content: `To the fullest extent permitted by Nigerian law, Sinterior and its officers, directors, and employees shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the Platform.
+    content: `To the fullest extent permitted by Nigerian law, Sintherior and its officers, directors, and employees shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the Platform.
 
-Our total liability to you for any claim arising from these Terms or your use of the Platform shall not exceed the total fees paid by you to Sinterior in the 12 months preceding the claim.`,
+Our total liability to you for any claim arising from these Terms or your use of the Platform shall not exceed the total fees paid by you to Sintherior in the 12 months preceding the claim.`,
   },
   {
     title: "9. Dispute Resolution",
