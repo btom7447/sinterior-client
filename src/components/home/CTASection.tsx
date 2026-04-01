@@ -17,7 +17,7 @@ const CTASection = () => {
                 Ready to Build Something Amazing?
               </h2>
               <p className="text-background/70 text-lg mb-8 max-w-xl mx-auto lg:mx-0">
-                Join thousands of artisans, suppliers, and clients already using Sinterior to transform the construction industry in Nigeria.
+                Join thousands of artisans, suppliers, and clients already using Sintherior to transform the construction industry in Nigeria.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link href="/signup">
@@ -27,7 +27,7 @@ const CTASection = () => {
                   </Button>
                 </Link>
                 <Link href="/artisan">
-                  <Button variant="outline" className="border-background/30 text-background hover:bg-background/10 px-8 py-6 rounded-xl text-lg font-semibold">
+                  <Button variant="outline" className="border-background/30 text-background bg-transparent hover:bg-background/10 px-8 py-6 rounded-xl text-lg font-semibold">
                     Explore Artisans
                   </Button>
                 </Link>
@@ -38,7 +38,7 @@ const CTASection = () => {
                 <div className="w-64 h-auto rounded-3xl bg-card shadow-2xl p-4">
                   <div className="flex items-center gap-2 mb-4">
                     <Smartphone strokeWidth={1} className="w-5 h-5 text-primary" />
-                    <span className="font-display font-semibold text-foreground text-sm">Sinterior App</span>
+                    <span className="font-display font-semibold text-foreground text-sm">Sintherior App</span>
                   </div>
                   <div className="space-y-3">
                     <div className="h-24 rounded-xl bg-secondary animate-pulse" />

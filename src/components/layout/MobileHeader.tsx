@@ -51,7 +51,7 @@ const MobileHeader = () => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-display font-bold text-base">S</span>
             </div>
-            <span className="font-display font-bold text-lg text-foreground">Sinterior</span>
+            <span className="font-display font-bold text-lg text-foreground">Sintherior</span>
           </Link>
 
           <div className="flex items-center gap-0.5">
@@ -87,7 +87,7 @@ const MobileHeader = () => {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display font-bold text-base">S</span>
               </div>
-              <span className="font-display font-bold text-lg text-foreground">Sinterior</span>
+              <span className="font-display font-bold text-lg text-foreground">Sintherior</span>
             </Link>
             <button
               onClick={close}

@@ -83,7 +83,7 @@ function SignupContent() {
         try {
           const form = new FormData();
           form.append("avatar", accountData.avatarFile);
-          await apiUpload("/profiles/avatar", form);
+          await apiUpload("/profiles/me/avatar", form);
         } catch {
           // Non-fatal — user can upload avatar from profile settings
         }
@@ -93,27 +93,25 @@ function SignupContent() {
       if (selectedRole === "artisan") {
         try {
           const { apiPatch } = await import("@/lib/apiClient");
-          await apiPatch("/artisans/me", {
+          await apiPatch("/artisans/onboarding", {
             skill: artisanData.skill,
             skillCategory: artisanData.skillCategory,
             pricePerDay: artisanData.pricePerDay,
             experienceYears: artisanData.experienceYears,
             address: artisanData.address,
-            ...(artisanData.latitude && artisanData.longitude
-              ? {
-                  location: {
-                    type: "Point",
-                    coordinates: [artisanData.longitude, artisanData.latitude],
-                  },
-                }
-              : {}),
           });
+          if (artisanData.latitude && artisanData.longitude) {
+            await apiPatch("/artisans/location", {
+              lat: artisanData.latitude,
+              lng: artisanData.longitude,
+            }).catch(() => {});
+          }
         } catch {
           // Non-fatal — onboarding flow will collect this
         }
       }
 
-      toast.success("Account created! Welcome to Sinterior.");
+      toast.success("Account created! Welcome to Sintherior.");
 
       if (selectedRole === "artisan") {
         router.push("/onboarding/artisan");
@@ -162,7 +160,7 @@ function SignupContent() {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display font-bold text-xl">S</span>
               </div>
-              <span className="font-display font-bold text-xl text-foreground">Sinterior</span>
+              <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
             </div>
 
             {selectedRole === "artisan" && step >= 2 && (

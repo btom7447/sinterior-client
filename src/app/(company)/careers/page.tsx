@@ -29,7 +29,7 @@ const openings = [
     location: "Multiple Cities",
     type: "Full-time",
     description:
-      "Visit and verify artisans across Nigeria, helping them set up profiles and get their first clients on Sinterior.",
+      "Visit and verify artisans across Nigeria, helping them set up profiles and get their first clients on Sintherior.",
   },
   {
     id: 4,
@@ -47,7 +47,7 @@ const openings = [
     location: "Remote (Nigeria)",
     type: "Full-time",
     description:
-      "Design and implement scalable APIs and data pipelines powering the Sinterior marketplace.",
+      "Design and implement scalable APIs and data pipelines powering the Sintherior marketplace.",
   },
   {
     id: 6,
@@ -91,7 +91,7 @@ export default function CareersPage() {
       {/* Perks */}
       <section className="section-padding border-b border-border">
         <div className="max-w-7xl mx-auto">
-          <h2 className="font-display text-2xl font-bold text-foreground mb-8">Why work at Sinterior</h2>
+          <h2 className="font-display text-2xl font-bold text-foreground mb-8">Why work at Sintherior</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {perks.map((perk) => (
               <div key={perk.title} className="flex gap-4 p-5 rounded-2xl border border-border bg-card">

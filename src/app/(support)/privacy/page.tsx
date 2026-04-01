@@ -4,9 +4,9 @@ import Link from "next/link";
 const sections = [
   {
     title: "1. Introduction",
-    content: `Sitam Integrated Resource Limited ("Sinterior", "we", "us") is committed to protecting your personal information. This Privacy Policy explains what data we collect, how we use it, and your rights with respect to it.
+    content: `Sitam Integrated Resource Limited ("Sintherior", "we", "us") is committed to protecting your personal information. This Privacy Policy explains what data we collect, how we use it, and your rights with respect to it.
 
-By using the Sinterior platform, you agree to the collection and use of information as described in this policy. We comply with the Nigeria Data Protection Act 2023 (NDPA) and, where applicable, the EU General Data Protection Regulation (GDPR).`,
+By using the Sintherior platform, you agree to the collection and use of information as described in this policy. We comply with the Nigeria Data Protection Act 2023 (NDPA) and, where applicable, the EU General Data Protection Regulation (GDPR).`,
   },
   {
     title: "2. Data We Collect",
@@ -43,7 +43,7 @@ With other platform users: Your public profile information (name, photo, reviews
 
 With service providers: We use trusted third-party providers for payment processing, cloud hosting, email delivery, and analytics. These providers are contractually bound to process data only as instructed.
 
-For legal compliance: We may disclose data when required by law, court order, or to protect the rights, property, or safety of Sinterior, its users, or the public.
+For legal compliance: We may disclose data when required by law, court order, or to protect the rights, property, or safety of Sintherior, its users, or the public.
 
 Business transfers: In the event of a merger or acquisition, your data may be transferred to the successor entity with appropriate notice.`,
   },
@@ -79,7 +79,7 @@ No system is completely secure. If you believe your account has been compromised
   },
   {
     title: "9. Children",
-    content: `Sinterior is not directed at children under 18. We do not knowingly collect personal data from minors. If we become aware that a minor has created an account, we will delete it and all associated data promptly.`,
+    content: `Sintherior is not directed at children under 18. We do not knowingly collect personal data from minors. If we become aware that a minor has created an account, we will delete it and all associated data promptly.`,
   },
   {
     title: "10. Changes to This Policy",

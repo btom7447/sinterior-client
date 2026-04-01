@@ -11,7 +11,7 @@ const categories = [
     title: "Getting Started",
     emoji: "🚀",
     articles: [
-      "How to create a Sinterior account",
+      "How to create a Sintherior account",
       "Choosing the right account type (Client, Artisan, Supplier)",
       "Completing your profile",
       "Understanding the verification process",
@@ -37,7 +37,7 @@ const categories = [
       "Getting verified as an artisan",
       "Setting your rates and availability",
       "Managing client requests",
-      "Getting paid on Sinterior",
+      "Getting paid on Sintherior",
       "Upgrading your subscription",
     ],
   },
@@ -81,12 +81,12 @@ const categories = [
 
 const faqs = [
   {
-    question: "Is Sinterior free to use?",
+    question: "Is Sintherior free to use?",
     answer:
       "Clients can browse and hire for free. Artisans and suppliers have a free tier with limited features. Paid subscriptions unlock priority placement, analytics, and more.",
   },
   {
-    question: "How does Sinterior verify artisans?",
+    question: "How does Sintherior verify artisans?",
     answer:
       "We verify government-issued ID, check trade certifications where applicable, collect a phone number, and in some cases conduct in-person or video inspections. Verified artisans display a green checkmark on their profile.",
   },
@@ -96,9 +96,9 @@ const faqs = [
       "Contact us within 7 days of project completion. We'll mediate the dispute and, where warranted, arrange for the work to be redone or issue a partial refund.",
   },
   {
-    question: "Can I pay through Sinterior or only directly to artisans?",
+    question: "Can I pay through Sintherior or only directly to artisans?",
     answer:
-      "You can pay directly through the platform (card, bank transfer, or USSD). Sinterior holds the funds in escrow and releases them when you confirm the work is done.",
+      "You can pay directly through the platform (card, bank transfer, or USSD). Sintherior holds the funds in escrow and releases them when you confirm the work is done.",
   },
   {
     question: "Are suppliers' products genuine?",

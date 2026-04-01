@@ -14,6 +14,8 @@ interface ApiProfile {
   id: string;
   fullName: string;
   avatarUrl: string | null;
+  phone: string | null;
+  bio: string | null;
   city: string;
   state: string;
 }
@@ -65,6 +67,7 @@ interface AuthContextType extends AuthState {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (token: string, password: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 function toProfile(user: ApiUser): Profile {
@@ -73,10 +76,10 @@ function toProfile(user: ApiUser): Profile {
     user_id: user.id,
     full_name: user.profile?.fullName ?? "",
     email: user.email,
-    phone: null,
+    phone: user.profile?.phone ?? null,
     role: user.role,
     avatar_url: user.profile?.avatarUrl ?? null,
-    bio: null,
+    bio: user.profile?.bio ?? null,
     city: user.profile?.city ?? "",
     state: user.profile?.state ?? "",
   };
@@ -163,6 +166,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.data.accessToken);
   };
 
+  const refreshProfile = async () => {
+    try {
+      const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
+      const user = meData.data.user;
+      setState((prev) => ({ ...prev, user, profile: toProfile(user) }));
+    } catch {
+      // silent
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -174,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         updatePassword,
         changePassword,
+        refreshProfile,
       }}
     >
       {children}

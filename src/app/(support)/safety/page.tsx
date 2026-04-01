@@ -25,7 +25,7 @@ const pillars = [
     icon: FileText,
     title: "Escrow Payments",
     description:
-      "When you pay through Sinterior, your money is held in escrow until you confirm the work or delivery is satisfactory. We never release funds prematurely.",
+      "When you pay through Sintherior, your money is held in escrow until you confirm the work or delivery is satisfactory. We never release funds prematurely.",
   },
   {
     icon: AlertTriangle,
@@ -37,7 +37,7 @@ const pillars = [
     icon: Phone,
     title: "24/7 Incident Line",
     description:
-      "If you are in immediate danger or have experienced a serious incident related to a Sinterior booking, call our emergency line at +234 800 000 0000.",
+      "If you are in immediate danger or have experienced a serious incident related to a Sintherior booking, call our emergency line at +234 800 000 0000.",
   },
 ];
 
@@ -48,13 +48,13 @@ const tips = [
       "Always use verified artisans (green checkmark on their profile).",
       "Read reviews from multiple clients, not just the most recent.",
       "Agree on scope, timeline, and payment terms in writing before work starts.",
-      "Never pay the full amount upfront — use Sinterior Escrow or agree on milestone payments.",
+      "Never pay the full amount upfront — use Sintherior Escrow or agree on milestone payments.",
     ],
   },
   {
     heading: "During a project",
     items: [
-      "Keep all communication on the Sinterior platform — this creates a record if a dispute arises.",
+      "Keep all communication on the Sintherior platform — this creates a record if a dispute arises.",
       "Take photos of work in progress and completed stages.",
       "Do not share personal banking details with artisans or suppliers.",
       "Trust your gut — if something feels off, pause the project and contact support.",
@@ -83,7 +83,7 @@ export default function SafetyPage() {
               Your safety is our <span className="gradient-text">first priority</span>
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Sinterior is only as good as the trust between the people who use it. Here's how
+              Sintherior is only as good as the trust between the people who use it. Here's how
               we work to keep every transaction safe — and what you can do to protect yourself.
             </p>
           </div>

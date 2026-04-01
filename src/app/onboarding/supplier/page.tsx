@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { apiPatch, apiUpload } from "@/lib/apiClient";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,9 +49,10 @@ function BusinessProfileStep({ data, setData }: {
 
   const handleLogo = (files: FileList | null) => {
     if (!files?.[0]) return;
+    const f = files[0];
     const reader = new FileReader();
-    reader.onload = (e) => setData({ ...data, logoPreview: e.target?.result as string });
-    reader.readAsDataURL(files[0]);
+    reader.onload = (e) => setData({ ...data, logoFile: f, logoPreview: e.target?.result as string });
+    reader.readAsDataURL(f);
   };
 
   return (
@@ -431,6 +433,7 @@ export default function SupplierOnboardingPage() {
   const [saving, setSaving] = useState(false);
 
   const [businessProfile, setBusinessProfile] = useState({
+    logoFile: null as File | null,
     logoPreview: null as string | null,
     businessName: "",
     businessType: "materials",
@@ -467,11 +470,44 @@ export default function SupplierOnboardingPage() {
   const handleNext = async () => {
     if (isLast) {
       setSaving(true);
-      // TODO: POST /api/suppliers/me/onboarding with all collected data
-      await new Promise((r) => setTimeout(r, 1000));
-      setSaving(false);
-      toast.success("Business profile complete! You can now list products.");
-      router.push("/dashboard");
+      try {
+        // Upload logo if provided
+        if (businessProfile.logoFile) {
+          const form = new FormData();
+          form.append("logo", businessProfile.logoFile);
+          await apiUpload("/suppliers/logo", form);
+        }
+
+        await apiPatch("/suppliers/onboarding", {
+          businessName: businessProfile.businessName,
+          businessType: businessProfile.businessType,
+          description: businessProfile.description,
+          cacNumber: verification.cacNumber,
+          taxId: verification.taxId,
+          categories: categories.categories,
+          deliveryOptions: delivery.deliveryOptions,
+          minOrderValue: delivery.minOrderValue ? Number(delivery.minOrderValue) : undefined,
+          deliveryDays: delivery.deliveryDays,
+          coverageStates: delivery.coverageStates,
+          businessAddress: payout.businessAddress,
+          whatsappNumber: payout.whatsappNumber,
+          bankName: payout.bankName,
+          accountNumber: payout.accountNumber,
+          accountName: payout.accountName,
+        });
+        // Also update profile bio/phone with business info
+        await apiPatch("/profiles/me", {
+          bio: businessProfile.description,
+          phone: payout.whatsappNumber,
+        }).catch(() => {});
+        toast.success("Business profile complete! You can now list products.");
+        router.push("/dashboard");
+      } catch {
+        toast.error("Failed to save business profile. Please try again.");
+      } finally {
+        setSaving(false);
+      }
+      return;
     } else {
       if (step === 1) {
         setCategories((prev) => ({ ...prev, businessType }));
@@ -500,7 +536,7 @@ export default function SupplierOnboardingPage() {
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display font-bold text-lg">S</span>
               </div>
-              <span className="font-display font-bold text-xl text-foreground">Sinterior</span>
+              <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
             </Link>
             <button onClick={() => router.push("/dashboard")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Skip for now

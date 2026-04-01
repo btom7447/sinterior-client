@@ -6,7 +6,7 @@ const featured = {
   slug: "how-to-hire-verified-artisans-nigeria",
   title: "How to Hire Verified Artisans in Nigeria Without Getting Burned",
   excerpt:
-    "We break down what to look for when hiring a builder, plumber, or electrician — and how Sinterior's verification process protects you.",
+    "We break down what to look for when hiring a builder, plumber, or electrician — and how Sintherior's verification process protects you.",
   category: "Guides",
   date: "March 20, 2026",
   readTime: "7 min read",
@@ -27,7 +27,7 @@ const posts = [
   {
     slug: "artisan-profile-tips",
     title: "5 Ways to Make Your Artisan Profile Stand Out",
-    excerpt: "Simple changes to your Sinterior profile that lead to more client inquiries and higher rates.",
+    excerpt: "Simple changes to your Sintherior profile that lead to more client inquiries and higher rates.",
     category: "Tips",
     date: "March 10, 2026",
     readTime: "4 min read",
@@ -44,7 +44,7 @@ const posts = [
   },
   {
     slug: "supplier-verification-process",
-    title: "Inside Sinterior's Supplier Verification Process",
+    title: "Inside Sintherior's Supplier Verification Process",
     excerpt: "A behind-the-scenes look at how we vet every supplier before they can list products on the platform.",
     category: "Platform",
     date: "Feb 28, 2026",
@@ -76,7 +76,7 @@ export default function BlogPage() {
               Stories & <span className="gradient-text">Insights</span>
             </h1>
             <p className="text-muted-foreground max-w-sm">
-              Guides, market updates, and news from the Sinterior team.
+              Guides, market updates, and news from the Sintherior team.
             </p>
           </div>
 

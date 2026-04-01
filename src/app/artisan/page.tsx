@@ -83,9 +83,9 @@ export default function ArtisanPage() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      artisan.full_name.toLowerCase().includes(query) ||
-      artisan.skill.toLowerCase().includes(query) ||
-      artisan.city.toLowerCase().includes(query)
+      artisan.profileId?.fullName?.toLowerCase().includes(query) ||
+      artisan.skill?.toLowerCase().includes(query) ||
+      artisan.city?.toLowerCase().includes(query)
     );
   });
 
@@ -229,7 +229,7 @@ export default function ArtisanPage() {
         {!isLoading && !error && filteredArtisans && filteredArtisans.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredArtisans.map((artisan) => (
-              <ArtisanCard key={artisan.id} artisan={artisan} />
+              <ArtisanCard key={artisan._id} artisan={artisan} />
             ))}
           </div>
         )}

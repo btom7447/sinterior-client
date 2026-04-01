@@ -1,61 +1,62 @@
-# Sinterior — Client
+# Sintherior — Frontend
 
-The Next.js 16 App Router frontend for [Sinterior](https://sinterior.ng), a marketplace connecting verified artisans, trusted suppliers, and clients across the Nigerian construction industry.
+The Next.js frontend for **Sintherior**, a marketplace connecting verified artisans, trusted suppliers, and clients across the Nigerian construction and interior design industry.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS v4 |
-| UI Components | shadcn/ui + Radix UI |
-| Auth | Supabase Auth |
-| Database | Supabase (PostgreSQL) |
-| Storage | Supabase Storage |
-| State | React Context + TanStack Query v5 |
-| Forms | React Hook Form + Zod |
-| Icons | Lucide React |
-| Animations | AOS (scroll), CSS keyframes |
-| Package Manager | pnpm |
-| Deployment | Vercel |
+| Layer            | Technology                                        |
+| ---------------- | ------------------------------------------------- |
+| Framework        | Next.js 16.2.1 (App Router, Turbopack)            |
+| Language         | TypeScript 5                                      |
+| Styling          | TailwindCSS 4, tailwindcss-animate                |
+| UI Components    | shadcn/ui + Radix UI (20+ primitives)             |
+| Real-Time        | Socket.IO Client (chat, typing, presence)         |
+| State            | React Context (auth, cart) + TanStack Query 5     |
+| Forms            | react-hook-form + zod 4                           |
+| Icons            | lucide-react                                      |
+| Charts           | Recharts 3                                        |
+| Dates            | date-fns, react-day-picker                        |
+| Animations       | AOS (scroll), Embla Carousel                      |
+| Notifications    | sonner (toast)                                    |
+| Theme            | next-themes (light/dark)                          |
+| Package Manager  | pnpm                                              |
 
 ---
 
 ## Getting Started
 
-### 1. Install dependencies
+### Prerequisites
+
+- Node.js 18+
+- pnpm (recommended) or npm
+- Running [Sintherior server](../server/README.md)
+
+### Install
 
 ```bash
+cd sinterior-client
 pnpm install
 ```
 
-### 2. Configure environment variables
+### Environment Variables
 
-Copy `.env.example` to `.env.local` and fill in your values:
+Create a `.env.local` file:
 
-```bash
-cp .env.example .env.local
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
 ```
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
-| `NEXT_PUBLIC_APP_URL` | Base URL of the app (e.g. `http://localhost:3000`) |
-| `NEXT_PUBLIC_API_URL` | Base URL of the Sinterior server API (e.g. `http://localhost:4000/api`) |
-
-### 3. Run the development server
+### Development
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Runs on [http://localhost:3000](http://localhost:3000).
 
-### 4. Build for production
+### Production
 
 ```bash
 pnpm build
@@ -68,258 +69,171 @@ pnpm start
 
 ```
 src/
-├── app/                    # Next.js App Router pages
+├── app/                        # Next.js App Router pages
+│   ├── (auth)/                 # Login, signup, forgot/reset password
+│   ├── (company)/              # About, blog, careers, contact, feed
+│   ├── (order)/                # Cart, checkout, order confirmation
+│   ├── (support)/              # Help, privacy, safety, terms
+│   ├── artisan/                # Artisan listing & [id] detail
+│   ├── dashboard/              # Protected user dashboard
+│   │   ├── appointments/
+│   │   ├── chat/
+│   │   ├── earnings/
+│   │   ├── inventory/
+│   │   ├── jobs/
+│   │   ├── my-products/
+│   │   ├── orders/
+│   │   ├── profile/
+│   │   ├── projects/
+│   │   ├── properties/
+│   │   ├── reviews/
+│   │   ├── saved/
+│   │   ├── settings/
+│   │   └── subscription/
+│   ├── onboarding/             # Artisan & supplier onboarding flows
+│   ├── products/               # Product browsing & [id] detail
+│   ├── real-estate/            # Property listings & [id] detail
+│   └── seller/                 # Supplier storefront [supplierId]
 ├── components/
-│   ├── layout/             # Navbar, Footer, AppLayout, MobileHeader
-│   ├── home/               # HeroSection, FeaturedProducts, etc.
-│   ├── artisan/            # ArtisanCard, LocationPermissionBanner
-│   ├── products/           # CategorySidebar, ProductCard, etc.
-│   ├── real-estate/        # PropertyCard
-│   ├── dashboard/          # DashboardSidebar, DashboardProfile, etc.
-│   ├── signup/             # Multi-step signup forms
-│   └── ui/                 # shadcn/ui primitives
+│   ├── artisan/                # ArtisanCard, search filters
+│   ├── auth/                   # Auth guard components
+│   ├── dashboard/              # Dashboard panels (overview, jobs, orders, profile, sidebar, etc.)
+│   ├── home/                   # Landing sections (hero, featured, CTA, how it works)
+│   ├── layout/                 # Navbar, Footer, MobileHeader
+│   ├── products/               # ProductCard, CategorySidebar
+│   ├── real-estate/            # PropertyCard
+│   ├── signup/                 # RoleSelector (multi-step signup)
+│   └── ui/                     # shadcn/ui primitives (button, input, dialog, etc.)
 ├── contexts/
-│   └── CartContext.tsx      # Cart state (items, add, remove, update)
-├── data/                   # Static seed data (products, artisans, properties)
+│   ├── AuthContext.tsx          # JWT auth state, sign-in/up/out, profile refresh
+│   └── CartContext.tsx          # Shopping cart state
 ├── hooks/
-│   ├── useAuth.ts           # Supabase auth state
-│   └── useChat.ts           # Chat unread count
-├── integrations/
-│   └── supabase/            # Supabase client + type helpers
-└── lib/
-    └── utils.ts             # cn() helper
+│   ├── useAuth.ts              # Auth context consumer
+│   ├── useArtisanSearch.ts     # Artisan search with geo/filters
+│   ├── useChat.ts              # Socket.IO chat (conversations, messages, typing, presence)
+│   ├── useNotifications.ts     # Notification polling (30s interval)
+│   ├── useGeolocation.ts       # Browser geolocation API
+│   └── use-mobile.tsx          # Responsive breakpoint hook
+├── lib/
+│   ├── apiClient.ts            # Centralized HTTP client (JWT in memory, httpOnly refresh cookie)
+│   └── utils.ts                # cn() helper, formatters
+└── types/
+    └── api.ts                  # Shared TypeScript interfaces (ApiArtisan, ApiProduct, ApiProperty)
 ```
 
 ---
 
-## Client-Side Routes
+## Routes
 
 ### Public
 
-| Route | Page | Description |
-|---|---|---|
-| `/` | Landing | Hero, how it works, featured artisans, products, real estate, CTA |
-| `/about` | About Us | Mission, stats, values, team |
-| `/careers` | Careers | Open roles, perks |
-| `/blog` | Blog | Post listing with category filters |
-| `/blog/[slug]` | Blog Post | Individual article |
-| `/contact` | Contact | Contact form + office info |
-| `/help` | Help Center | Topic categories, FAQ accordion, search |
-| `/safety` | Safety | Safety pillars, tips, report flow |
-| `/terms` | Terms of Service | Full legal content with sticky TOC |
-| `/privacy` | Privacy Policy | Full policy with sticky TOC |
+| Route              | Description                                    |
+| ------------------ | ---------------------------------------------- |
+| `/`                | Landing page — hero, featured sections, CTA    |
+| `/artisan`         | Artisan listing with search & filters          |
+| `/artisan/[id]`    | Artisan detail — portfolio, reviews, hire form |
+| `/products`        | Product browsing with category sidebar         |
+| `/products/[id]`   | Product detail — gallery, specs, add to cart   |
+| `/real-estate`     | Property listings with filters                 |
+| `/real-estate/[id]`| Property detail — gallery, amenities, agent    |
+| `/seller/[id]`     | Supplier storefront with their products        |
+| `/about`           | About us — mission, values, team               |
+| `/blog`            | Blog posts                                     |
+| `/careers`         | Open roles and perks                           |
+| `/contact`         | Contact form                                   |
+| `/help`            | Help center with FAQ                           |
+| `/safety`          | Safety information                             |
+| `/terms`           | Terms of service                               |
+| `/privacy`         | Privacy policy                                 |
 
 ### Auth
 
-| Route | Page | Description |
-|---|---|---|
-| `/login` | Login | Email/password sign-in |
-| `/signup` | Sign Up | Multi-step: account type → details → avatar |
-| `/forgot-password` | Forgot Password | Request password reset email |
-| `/reset-password` | Reset Password | Set new password (from email link) |
+| Route               | Description                  |
+| -------------------- | ---------------------------- |
+| `/login`             | Email/password sign-in       |
+| `/signup`            | Multi-step registration      |
+| `/forgot-password`   | Request password reset email |
+| `/reset-password`    | Set new password from link   |
 
-### Marketplace — Products
+### Onboarding
 
-| Route | Page | Description |
-|---|---|---|
-| `/products` | Products | Category sidebar, search, filter, product grid |
-| `/products/[id]` | Product Detail | Gallery, specs, add to cart, reviews |
-| `/cart` | Cart | Item list, quantity control, order summary |
-| `/checkout` | Checkout | Delivery address, payment method |
-| `/order-confirmation` | Order Confirmation | Success state, order reference |
-| `/seller/[supplierId]` | Supplier Storefront | Supplier profile + all their products |
-
-### Marketplace — Artisans
-
-| Route | Page | Description |
-|---|---|---|
-| `/artisan` | Artisans | Search, filter by trade/location, artisan cards |
-| `/artisan/[id]` | Artisan Profile | Portfolio, reviews, contact + booking panel |
-
-### Real Estate
-
-| Route | Page | Description |
-|---|---|---|
-| `/real-estate` | Real Estate | Filter sidebar, property cards (rent/sale) |
-| `/real-estate/[id]` | Property Detail | Gallery, map, video, amenities, agent contact |
-
-### Social / Feed
-
-| Route | Page | Description |
-|---|---|---|
-| `/feed` | Community Feed | Posts, likes, comments, saves |
-| `/chat` | Chat | Conversation list + message thread |
+| Route                    | Description                          |
+| ------------------------ | ------------------------------------ |
+| `/onboarding/artisan`    | Multi-step artisan profile setup     |
+| `/onboarding/supplier`   | Multi-step supplier profile setup    |
 
 ### Dashboard (Authenticated)
 
-| Route | Page | Description |
-|---|---|---|
-| `/dashboard` | Dashboard Home | Overview stats, recent activity |
-| `/dashboard/profile` | Profile | Edit name, bio, phone, avatar |
-| `/dashboard/settings` | Settings | Notification preferences, account settings |
-| `/dashboard/subscription` | Subscription | Current plan, upgrade options |
+| Route                        | Description                          |
+| ---------------------------- | ------------------------------------ |
+| `/dashboard`                 | Overview — stats, quick links, recent orders |
+| `/dashboard/profile`         | Edit name, bio, phone, avatar        |
+| `/dashboard/jobs`            | Job management with status transitions |
+| `/dashboard/orders`          | Order tracking (client/supplier)     |
+| `/dashboard/chat`            | Real-time messaging                  |
+| `/dashboard/appointments`    | Appointment scheduling               |
+| `/dashboard/my-products`     | Supplier product management          |
+| `/dashboard/inventory`       | Supplier inventory                   |
+| `/dashboard/earnings`        | Earnings overview                    |
+| `/dashboard/reviews`         | Review management                    |
+| `/dashboard/projects`        | Project tracking                     |
+| `/dashboard/properties`      | Property management                  |
+| `/dashboard/saved`           | Saved/bookmarked items               |
+| `/dashboard/settings`        | Account settings                     |
+| `/dashboard/subscription`    | Subscription plans                   |
+
+### Commerce
+
+| Route                  | Description                    |
+| ---------------------- | ------------------------------ |
+| `/cart`                | Shopping cart                  |
+| `/checkout`            | Delivery & payment             |
+| `/order-confirmation`  | Order success page             |
 
 ---
 
-## Server API Endpoints Needed
+## Authentication
 
-The following REST endpoints must be implemented on the Sinterior server. All authenticated endpoints expect a `Bearer` token in the `Authorization` header (JWT issued by Supabase Auth).
+JWT-based authentication with the Express backend:
 
-### Auth & Profiles
+- **Access token** — stored in memory (never localStorage), sent as `Authorization: Bearer` header
+- **Refresh token** — httpOnly cookie, auto-refreshed on app load via `POST /auth/refresh`
+- **Session restore** — `AuthContext` calls `/auth/refresh` + `/auth/me` on mount
+- **Profile state** — `toProfile()` maps API camelCase to snake_case for component compatibility
+- **`refreshProfile()`** — re-fetches `/auth/me` after profile mutations (avatar, name, bio, phone)
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/auth/me` | ✅ | Get authenticated user profile |
-| `PUT` | `/api/auth/me` | ✅ | Update profile (name, bio, phone, avatar_url) |
-| `PUT` | `/api/auth/me/password` | ✅ | Change password |
-| `DELETE` | `/api/auth/me` | ✅ | Deactivate account |
+## Real-Time
 
-### Artisans
+| Feature              | Transport    | Details                                               |
+| -------------------- | ------------ | ----------------------------------------------------- |
+| Chat messages        | Socket.IO    | `message:send` / `message:new` events, acknowledgment |
+| Typing indicators    | Socket.IO    | `typing:start` / `typing:stop` with auto-timeout      |
+| Online presence      | Socket.IO    | `user:online` / `user:offline`, bulk `user:check-online` |
+| Read receipts        | Socket.IO    | `message:read` marks messages, updates conversation   |
+| Conversation updates | Socket.IO    | `conversation:updated` for new messages in list        |
+| Notifications        | Polling (30s)| `GET /notifications`                                  |
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/artisans` | ❌ | List artisans — query: `trade`, `location`, `radius_km`, `min_rating`, `verified`, `page`, `limit` |
-| `GET` | `/api/artisans/:id` | ❌ | Get artisan detail (profile + portfolio + stats) |
-| `GET` | `/api/artisans/:id/reviews` | ❌ | Paginated reviews for an artisan |
-| `POST` | `/api/artisans/:id/reviews` | ✅ | Submit a review (rating + comment) |
-| `POST` | `/api/artisans/:id/contact` | ✅ | Send a message / enquiry to an artisan |
-| `POST` | `/api/artisans/:id/bookings` | ✅ | Request a booking / appointment |
-| `GET` | `/api/artisans/me` | ✅ | Get own artisan profile (artisan role only) |
-| `PUT` | `/api/artisans/me` | ✅ | Update own artisan profile |
+### Chat Architecture
 
-### Products
+- Singleton socket with ref-counting — `useChat` and `useMessages` share one connection
+- `canChat()` server-side access control: requires an existing Job or Order relationship
+- Deterministic `conversationId` from sorted profile IDs: `[idA, idB].sort().join('_')`
+- Search users by email to initiate new conversations
 
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/products` | ❌ | List products — query: `category`, `supplier_id`, `min_price`, `max_price`, `q`, `sort`, `page`, `limit` |
-| `GET` | `/api/products/:id` | ❌ | Get product detail |
-| `GET` | `/api/products/categories` | ❌ | List all product categories |
-| `GET` | `/api/products/:id/reviews` | ❌ | Paginated reviews for a product |
-| `POST` | `/api/products/:id/reviews` | ✅ | Submit a product review |
+## Dashboard Auth Guard
 
-### Cart & Orders
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/orders` | ✅ | List own orders — query: `status`, `page`, `limit` |
-| `POST` | `/api/orders` | ✅ | Create order from cart (items, delivery address, payment ref) |
-| `GET` | `/api/orders/:id` | ✅ | Get order detail |
-| `PUT` | `/api/orders/:id/cancel` | ✅ | Cancel an order |
-| `POST` | `/api/orders/:id/confirm` | ✅ | Confirm delivery (releases escrow) |
-
-### Payments
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/payments/initiate` | ✅ | Initiate payment (returns gateway URL/reference) |
-| `POST` | `/api/payments/verify` | ✅ | Verify payment status after redirect |
-| `GET` | `/api/payments/history` | ✅ | Transaction history for the user |
-
-### Real Estate / Properties
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/properties` | ❌ | List properties — query: `type` (rent/sale), `min_price`, `max_price`, `bedrooms`, `location`, `featured`, `page`, `limit` |
-| `GET` | `/api/properties/:id` | ❌ | Get property detail (includes agent info) |
-| `POST` | `/api/properties/:id/enquire` | ✅ | Send enquiry to listing agent |
-| `POST` | `/api/properties/:id/save` | ✅ | Save / unsave a property |
-| `GET` | `/api/properties/saved` | ✅ | List saved properties for the user |
-
-### Suppliers / Sellers
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/suppliers` | ❌ | List suppliers |
-| `GET` | `/api/suppliers/:id` | ❌ | Get supplier storefront (profile + products) |
-| `GET` | `/api/suppliers/me` | ✅ | Get own supplier profile (supplier role only) |
-| `PUT` | `/api/suppliers/me` | ✅ | Update own supplier profile |
-| `POST` | `/api/products` | ✅ | Create a product listing (supplier only) |
-| `PUT` | `/api/products/:id` | ✅ | Update a product listing (owner only) |
-| `DELETE` | `/api/products/:id` | ✅ | Delete a product listing (owner only) |
-
-### Chat / Messaging
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/conversations` | ✅ | List conversations for the user |
-| `GET` | `/api/conversations/:id/messages` | ✅ | Paginated messages in a conversation |
-| `POST` | `/api/conversations` | ✅ | Start a new conversation (with artisan or supplier) |
-| `POST` | `/api/conversations/:id/messages` | ✅ | Send a message |
-| `PUT` | `/api/conversations/:id/read` | ✅ | Mark conversation as read |
-
-### Notifications
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/notifications` | ✅ | List notifications — query: `unread_only`, `page`, `limit` |
-| `PUT` | `/api/notifications/read-all` | ✅ | Mark all notifications as read |
-| `PUT` | `/api/notifications/:id/read` | ✅ | Mark a single notification as read |
-
-### Feed / Community
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/feed` | ❌ | List feed posts — query: `page`, `limit` |
-| `POST` | `/api/feed` | ✅ | Create a post |
-| `POST` | `/api/feed/:id/like` | ✅ | Toggle like on a post |
-| `POST` | `/api/feed/:id/save` | ✅ | Toggle save on a post |
-| `GET` | `/api/feed/:id/comments` | ❌ | Get comments on a post |
-| `POST` | `/api/feed/:id/comments` | ✅ | Post a comment |
-
-### Subscriptions
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/subscriptions/plans` | ❌ | List available subscription plans |
-| `GET` | `/api/subscriptions/me` | ✅ | Get current user's active subscription |
-| `POST` | `/api/subscriptions` | ✅ | Subscribe to a plan |
-| `PUT` | `/api/subscriptions/me/cancel` | ✅ | Cancel subscription at period end |
-
-### Dashboard / Analytics
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/dashboard/stats` | ✅ | Summary stats (orders, earnings, views — role-specific) |
-| `GET` | `/api/dashboard/activity` | ✅ | Recent activity feed for the dashboard |
-
-### Admin (Internal)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `PUT` | `/api/admin/artisans/:id/verify` | ✅ Admin | Approve artisan verification |
-| `PUT` | `/api/admin/suppliers/:id/verify` | ✅ Admin | Approve supplier verification |
-| `DELETE` | `/api/admin/reviews/:id` | ✅ Admin | Remove a review |
-| `DELETE` | `/api/admin/posts/:id` | ✅ Admin | Remove a feed post |
+The dashboard layout (`/dashboard/*`) is protected by a client-side auth guard:
+- Shows a loading spinner while session restore is in progress
+- Redirects unauthenticated users to `/login?next=<current-path>`
+- Prevents the dashboard from flashing before redirect
 
 ---
 
-## Environment Variables
+## Scripts
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Server API (to be added once the server is set up)
-NEXT_PUBLIC_API_URL=http://localhost:4000/api
-```
-
----
-
-## Branch Strategy
-
-| Branch | Purpose |
-|---|---|
-| `main` | Production — mirrors what's live on sinterior.ng |
-| `v1.1` | Active development branch (current migration) |
-| `feature/*` | Short-lived feature branches off `v1.1` |
-
----
-
-## Related Repositories
-
-- **sinterior-server** — Node.js/Express API server (to be set up) — implements all `/api/*` endpoints listed above
-- **sinterior-connect** — Original Vite + React Router v6 app (archived, migrated to this repo)
+| Command        | Description              |
+| -------------- | ------------------------ |
+| `pnpm dev`     | Start dev server         |
+| `pnpm build`   | Production build         |
+| `pnpm start`   | Start production server  |
+| `pnpm lint`    | Run ESLint               |

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useCart } from "@/contexts/CartContext";
+import { apiPost } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, MapPin, Phone, User, CreditCard, Truck } from "lucide-react";
@@ -14,22 +15,41 @@ export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", address: "", city: "", note: "" });
+  const [paymentMethod, setPaymentMethod] = useState("Pay on Delivery");
 
   if (items.length === 0) {
     router.push("/cart");
     return null;
   }
 
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (!form.name || !form.phone || !form.address || !form.city) {
       toast.error("Please fill all required fields");
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const orderItems = items.map(({ product, quantity }) => ({
+        productId: product._id || String(product.id),
+        quantity,
+      }));
+
+      await apiPost("/orders", {
+        items: orderItems,
+        deliveryAddress: `${form.address}, ${form.name}, ${form.phone}`,
+        city: form.city,
+        note: form.note || undefined,
+        paymentMethod,
+      });
+
       clearCart();
+      toast.success("Order placed successfully!");
       router.push("/order-confirmation");
-    }, 1500);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to place order");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,7 +95,13 @@ export default function CheckoutPage() {
             <div className="space-y-2">
               {["Pay on Delivery", "Bank Transfer", "Card Payment"].map((method) => (
                 <label key={method} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary/50 cursor-pointer transition-colors">
-                  <input type="radio" name="payment" defaultChecked={method === "Pay on Delivery"} className="accent-primary" />
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={paymentMethod === method}
+                    onChange={() => setPaymentMethod(method)}
+                    className="accent-primary"
+                  />
                   <span className="text-sm text-foreground">{method}</span>
                 </label>
               ))}
@@ -87,7 +113,7 @@ export default function CheckoutPage() {
             <h3 className="text-sm font-bold text-foreground">Order Summary</h3>
             <div className="space-y-2 bg-secondary/50 rounded-xl p-3">
               {items.map(({ product, quantity }) => (
-                <div key={product.id} className="flex justify-between text-sm">
+                <div key={String(product.id)} className="flex justify-between text-sm">
                   <span className="text-muted-foreground truncate flex-1">{product.name} × {quantity}</span>
                   <span className="font-medium text-foreground ml-2">{product.price}</span>
                 </div>

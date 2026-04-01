@@ -10,11 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { apiPatch, apiUpload } from "@/lib/apiClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PortfolioItem {
   id: string;
+  file: File;
   preview: string;
   caption: string;
 }
@@ -24,6 +26,7 @@ interface Certification {
   name: string;
   issuedBy: string;
   year: string;
+  file?: File;
   preview?: string;
 }
 
@@ -47,19 +50,19 @@ function PortfolioStep({
   items, setItems,
 }: {
   items: PortfolioItem[];
-  setItems: (v: PortfolioItem[]) => void;
+  setItems: React.Dispatch<React.SetStateAction<PortfolioItem[]>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
     const remaining = 6 - items.length;
-    Array.from(files).slice(0, remaining).forEach((file) => {
+    Array.from(files).slice(0, remaining).forEach((f) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setItems([...items, { id: crypto.randomUUID(), preview: e.target?.result as string, caption: "" }]);
+        setItems((prev) => [...prev, { id: crypto.randomUUID(), file: f, preview: e.target?.result as string, caption: "" }]);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(f);
     });
   };
 
@@ -118,7 +121,7 @@ function CertificationsStep({
   certs, setCerts,
 }: {
   certs: Certification[];
-  setCerts: (v: Certification[]) => void;
+  setCerts: React.Dispatch<React.SetStateAction<Certification[]>>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -134,9 +137,12 @@ function CertificationsStep({
 
   const handleCertImage = (id: string, files: FileList | null) => {
     if (!files?.[0]) return;
+    const f = files[0];
     const reader = new FileReader();
-    reader.onload = (e) => update(id, "preview", e.target?.result as string);
-    reader.readAsDataURL(files[0]);
+    reader.onload = (e) => {
+      setCerts((prev) => prev.map((c) => (c.id === id ? { ...c, file: f, preview: e.target?.result as string } : c)));
+    };
+    reader.readAsDataURL(f);
   };
 
   return (
@@ -458,13 +464,56 @@ export default function ArtisanOnboardingPage() {
   const handleNext = async () => {
     if (isLast) {
       setSaving(true);
-      // TODO: POST /api/artisans/me/onboarding with all collected data
-      // Payload includes: portfolio, certs, availDays, startTime, endTime,
-      // radius (serviceRadiusKm), tools, extraSkills, latitude: artisanLat, longitude: artisanLng
-      await new Promise((r) => setTimeout(r, 1000));
-      setSaving(false);
-      toast.success("Profile complete! Welcome to Sinterior.");
-      router.push("/dashboard");
+      try {
+        // 1. Upload portfolio images as real files
+        let portfolioUrls: { url: string; caption: string }[] = [];
+        if (portfolio.length > 0) {
+          const form = new FormData();
+          portfolio.forEach((p, i) => {
+            form.append("images", p.file);
+            form.append(`captions[${i}]`, p.caption);
+          });
+          const res = await apiUpload<{ data: { portfolio: { url: string; caption: string }[] } }>("/artisans/portfolio", form);
+          portfolioUrls = res.data.portfolio;
+        }
+
+        // 2. Upload certification files and collect URLs
+        const certData = await Promise.all(
+          certs.map(async (c) => {
+            let fileUrl: string | undefined;
+            if (c.file) {
+              const form = new FormData();
+              form.append("file", c.file);
+              const res = await apiUpload<{ data: { fileUrl: string } }>("/artisans/certifications", form);
+              fileUrl = res.data.fileUrl;
+            }
+            return { name: c.name, issuedBy: c.issuedBy, year: c.year ? Number(c.year) : undefined, fileUrl };
+          })
+        );
+
+        // 3. Save onboarding metadata (portfolio already saved by upload, save certs + rest)
+        await apiPatch("/artisans/onboarding", {
+          certifications: certData,
+          availableDays: availDays,
+          workHoursStart: startTime,
+          workHoursEnd: endTime,
+          serviceRadiusKm: radius,
+          tools,
+          additionalSkills: extraSkills,
+        });
+
+        // 4. Update location separately if captured
+        if (artisanLat && artisanLng) {
+          await apiPatch("/artisans/location", { lat: artisanLat, lng: artisanLng }).catch(() => {});
+        }
+        toast.success("Profile complete! Welcome to Sintherior.");
+        router.push("/dashboard");
+      } catch {
+        toast.error("Failed to save profile. Please try again.");
+      } finally {
+        setSaving(false);
+      }
+      return;
     } else {
       setStep(step + 1);
     }
@@ -488,7 +537,7 @@ export default function ArtisanOnboardingPage() {
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display font-bold text-lg">S</span>
               </div>
-              <span className="font-display font-bold text-xl text-foreground">Sinterior</span>
+              <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
             </Link>
             <button
               onClick={() => router.push("/dashboard")}

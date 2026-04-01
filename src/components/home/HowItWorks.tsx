@@ -12,7 +12,7 @@ const HowItWorks = () => {
     <section className="section-padding">
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16" data-aos="fade-up">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">How Sinterior Works</h2>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">How Sintherior Works</h2>
           <p className="text-muted-foreground text-lg">
             Get started in minutes. Find what you need, connect with professionals, and complete your projects.
           </p>

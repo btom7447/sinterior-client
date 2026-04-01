@@ -32,7 +32,7 @@ const Footer = () => {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-display font-bold text-xl">S</span>
               </div>
-              <span className="font-display font-bold text-xl">Sinterior</span>
+              <span className="font-display font-bold text-xl">Sintherior</span>
             </div>
             <p className="text-background/70 text-sm leading-relaxed">
               Connecting suppliers, artisans, and clients across the construction industry.
@@ -74,7 +74,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-12 pt-8 border-t border-background/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-background/60 text-sm">© 2025 Sinterior. Sitam Integrated Resource Limited.</p>
+          <p className="text-background/60 text-sm">© 2025 Sintherior. Sitam Integrated Resource Limited.</p>
           <div className="flex items-center gap-4">
             <span className="text-background/60 text-sm">Made in Nigeria 🇳🇬</span>
           </div>

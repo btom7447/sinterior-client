@@ -1,5 +1,5 @@
 /**
- * Centralised API client for the Sinterior backend.
+ * Centralised API client for the Sintherior backend.
  *
  * - Access token is held in memory (never written to localStorage).
  * - Refresh token lives in an httpOnly cookie managed by the server.

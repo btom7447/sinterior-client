@@ -13,7 +13,7 @@ const values = [
     icon: Users,
     title: "Community First",
     description:
-      "We built Sinterior to empower Nigerian construction professionals — artisans, suppliers, and clients — with tools that were previously out of reach.",
+      "We built Sintherior to empower Nigerian construction professionals — artisans, suppliers, and clients — with tools that were previously out of reach.",
   },
   {
     icon: Target,
@@ -31,7 +31,7 @@ const values = [
     icon: Globe,
     title: "Built for Nigeria",
     description:
-      "From Lagos to Kano, Enugu to Port Harcourt — Sinterior is designed around the realities of the Nigerian construction market.",
+      "From Lagos to Kano, Enugu to Port Harcourt — Sintherior is designed around the realities of the Nigerian construction market.",
   },
 ];
 
@@ -65,12 +65,12 @@ export default function AboutPage() {
       <section className="section-padding bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-3xl">
-            <span className="badge-role mb-4 inline-block">About Sinterior</span>
+            <span className="badge-role mb-4 inline-block">About Sintherior</span>
             <h1 className="font-display text-4xl sm:text-5xl font-bold text-foreground mb-6 leading-tight">
               Building Nigeria's Construction <span className="gradient-text">Ecosystem</span>
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Sinterior is a platform connecting verified artisans, trusted suppliers, and
+              Sintherior is a platform connecting verified artisans, trusted suppliers, and
               clients across Nigeria. We make it simple to find skilled professionals, source
               quality materials, and manage construction projects from start to finish.
             </p>
@@ -107,7 +107,7 @@ export default function AboutPage() {
                 operate in silos, relying on word-of-mouth and guesswork.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                We started Sinterior to change that. By bringing verification, transparency, and
+                We started Sintherior to change that. By bringing verification, transparency, and
                 digital tools to the sector, we help professionals grow their businesses and
                 clients build with confidence.
               </p>
@@ -149,7 +149,7 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <span className="badge-role mb-4 inline-block">Our Team</span>
-            <h2 className="font-display text-3xl font-bold text-foreground">The people behind Sinterior</h2>
+            <h2 className="font-display text-3xl font-bold text-foreground">The people behind Sintherior</h2>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {team.map((member) => (
