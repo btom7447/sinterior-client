@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Edit2, Save } from "lucide-react";
+import { Camera, Edit2, Save, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 import { apiPatch, apiUpload } from "@/lib/apiClient";
 import { toast } from "sonner";
 
 const DashboardProfile = () => {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, signOut } = useAuth();
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -193,6 +195,18 @@ const DashboardProfile = () => {
           </div>
         )}
       </div>
+
+      {/* Logout */}
+      <button
+        onClick={async () => {
+          await signOut();
+          router.push("/");
+        }}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <LogOut className="w-4 h-4" strokeWidth={1} />
+        Sign Out
+      </button>
     </div>
   );
 };

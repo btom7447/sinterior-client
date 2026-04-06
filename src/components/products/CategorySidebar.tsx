@@ -97,6 +97,16 @@ const defaultCategories: CategoryItem[] = [
     children: ["Pipes", "Fittings", "Taps", "Water Heaters"],
   },
   {
+    name: "Aggregates",
+    icon: Package,
+    children: ["Sand", "Gravel", "Granite Chippings"],
+  },
+  {
+    name: "Wood & Timber",
+    icon: Hammer,
+    children: ["Planks", "Plywood", "MDF", "Hardwood"],
+  },
+  {
     name: "Automobile",
     icon: Car,
   },

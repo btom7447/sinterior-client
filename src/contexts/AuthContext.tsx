@@ -63,6 +63,7 @@ interface AuthContextType extends AuthState {
     fullName: string;
     city: string;
     state: string;
+    phone?: string;
   }) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -130,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fullName: string;
     city: string;
     state: string;
+    phone?: string;
   }): Promise<AuthResponse> => {
     const data = await apiPost<AuthResponse>("/auth/register", payload);
     setToken(data.data.accessToken);

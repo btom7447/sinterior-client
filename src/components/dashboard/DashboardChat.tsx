@@ -1,12 +1,55 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useChat, useMessages, type Conversation, type SearchResult } from "@/hooks/useChat";
+import { useChat, useMessages, type Conversation, type SearchResult, type ChatMessage } from "@/hooks/useChat";
 import { resolveAssetUrl } from "@/types/api";
-import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck } from "lucide-react";
+import { apiUpload } from "@/lib/apiClient";
+import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck, AlertTriangle, ImagePlus, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+
+/* ── Media grid (WhatsApp-style 2x2 with +N) ──────────────────────────────── */
+function MediaGrid({ media, onPreview }: { media: string[]; onPreview: (url: string) => void }) {
+  const resolved = media.map(resolveAssetUrl);
+  const show = resolved.slice(0, 4);
+  const extra = resolved.length - 4;
+
+  if (show.length === 1) {
+    return (
+      <button onClick={() => onPreview(show[0])} className="block rounded-xl overflow-hidden max-w-[260px]">
+        <img src={show[0]} alt="" className="w-full max-h-[280px] object-cover" loading="lazy" />
+      </button>
+    );
+  }
+
+  return (
+    <div className={`grid gap-1 rounded-xl overflow-hidden max-w-[260px] ${show.length === 2 ? "grid-cols-2" : "grid-cols-2"}`}>
+      {show.map((url, i) => (
+        <button key={i} onClick={() => onPreview(url)} className="relative aspect-square overflow-hidden">
+          <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+          {i === 3 && extra > 0 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">+{extra}</span>
+            </div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── Image preview modal ──────────────────────────────────────────────────── */
+function ImagePreview({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20">
+        <X className="w-5 h-5" />
+      </button>
+      <img src={url} alt="" className="max-w-full max-h-[90vh] object-contain rounded-xl" onClick={(e) => e.stopPropagation()} />
+    </div>
+  );
+}
 
 export default function DashboardChat() {
   const {
@@ -23,8 +66,8 @@ export default function DashboardChat() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Filter conversations by search
   const filteredConvos = searchQuery.trim()
     ? conversations.filter((c) =>
         c.participant?.fullName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -39,7 +82,6 @@ export default function DashboardChat() {
     setSearching(false);
   };
 
-  // Active conversation message handling
   const receiverId = activeConvo?.participant?.id || "";
   const {
     messages,
@@ -51,7 +93,10 @@ export default function DashboardChat() {
 
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,21 +104,54 @@ export default function DashboardChat() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !receiverId || sending) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || !receiverId || sending) return;
     setSending(true);
-    const msg = await sendMessage(newMessage.trim(), receiverId);
-    if (msg) {
-      setNewMessage("");
-      refetch();
-    } else {
-      toast.error("Failed to send message");
+
+    try {
+      if (selectedFiles.length > 0) {
+        // Send as multipart with media
+        const form = new FormData();
+        form.append("receiverId", receiverId);
+        if (newMessage.trim()) form.append("content", newMessage.trim());
+        selectedFiles.forEach((file) => form.append("media", file));
+        await apiUpload("/chat/messages", form);
+        setNewMessage("");
+        setSelectedFiles([]);
+        setFilePreviews([]);
+        refetch();
+      } else {
+        // Send text-only via socket
+        const msg = await sendMessage(newMessage.trim(), receiverId);
+        if (msg) {
+          setNewMessage("");
+          refetch();
+        } else {
+          toast.error("Failed to send message");
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   const handleInputChange = (value: string) => {
     setNewMessage(value);
     emitTyping(!!value.trim());
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, 4);
+    setSelectedFiles(files);
+    setFilePreviews(files.map((f) => URL.createObjectURL(f)));
+    if (e.target) e.target.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    URL.revokeObjectURL(filePreviews[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const openConversation = (convo: Conversation) => {
@@ -92,13 +170,36 @@ export default function DashboardChat() {
     return d.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
   };
 
+  // Group consecutive messages by same sender for avatar clustering
+  const shouldShowAvatar = (msg: ChatMessage, index: number, all: ChatMessage[]) => {
+    const senderId = typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+    if (index === all.length - 1) return true;
+    const nextSenderId = typeof all[index + 1].senderId === "object"
+      ? (all[index + 1].senderId as { _id: string })._id
+      : all[index + 1].senderId;
+    return senderId !== nextSenderId;
+  };
+
+  const getAvatarUrl = (msg: ChatMessage, isMine: boolean) => {
+    if (isMine) return null;
+    if (typeof msg.senderId === "object" && msg.senderId.avatarUrl) {
+      return resolveAssetUrl(msg.senderId.avatarUrl);
+    }
+    return activeConvo?.participant?.avatarUrl ? resolveAssetUrl(activeConvo.participant.avatarUrl) : null;
+  };
+
+  const getInitial = (msg: ChatMessage, isMine: boolean) => {
+    if (isMine) return "Y";
+    if (typeof msg.senderId === "object") return msg.senderId.fullName?.charAt(0) || "?";
+    return activeConvo?.participant?.fullName?.charAt(0) || "?";
+  };
+
   const showMessages = !!activeConvo;
 
   return (
     <div className="flex h-[calc(100vh-8rem)] -m-4 lg:-m-6">
       {/* Conversations List */}
       <div className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col bg-card ${showMessages ? "hidden md:flex" : "flex"}`}>
-        {/* Header with search */}
         <div className="p-4 border-b border-border shrink-0 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-foreground">Messages</h2>
@@ -113,10 +214,7 @@ export default function DashboardChat() {
               type="text"
               placeholder="Search contacts or enter email..."
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setSearchResults([]);
-              }}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchResults([]); }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -124,22 +222,17 @@ export default function DashboardChat() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Search results by email */}
           {searchResults.length > 0 && (
             <div className="p-2 border-b border-border">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 mb-1">Search Results</p>
               {searchResults.map((user) => (
                 <button
                   key={user._id}
-                  disabled={!user.canChat}
                   onClick={() => {
-                    // Find existing conversation or create new context
-                    const existing = conversations.find(
-                      (c) => c.participant?.id === user._id
-                    );
+                    const existing = conversations.find((c) => c.participant?.id === user._id);
                     if (existing) {
                       openConversation(existing);
-                    } else if (user.canChat) {
+                    } else {
                       setActiveConvo({
                         conversationId: "",
                         lastMessage: null,
@@ -150,7 +243,7 @@ export default function DashboardChat() {
                       setSearchResults([]);
                     }
                   }}
-                  className="w-full flex items-center gap-3 p-3 text-left rounded-xl hover:bg-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center gap-3 p-3 text-left rounded-xl hover:bg-secondary/50"
                 >
                   <Avatar className="w-9 h-9 shrink-0">
                     <AvatarImage src={resolveAssetUrl(user.avatarUrl || "")} />
@@ -160,19 +253,12 @@ export default function DashboardChat() {
                     <p className="text-sm font-medium text-foreground truncate">{user.fullName}</p>
                     {user.city && <p className="text-[10px] text-muted-foreground">{user.city}</p>}
                   </div>
-                  {!user.canChat && (
-                    <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">No access</span>
-                  )}
                 </button>
               ))}
             </div>
           )}
 
-          {searching && (
-            <div className="flex items-center justify-center py-6">
-              <p className="text-xs text-muted-foreground">Searching...</p>
-            </div>
-          )}
+          {searching && <div className="flex items-center justify-center py-6"><p className="text-xs text-muted-foreground">Searching...</p></div>}
 
           {loadingConvos ? (
             <div className="space-y-1 p-2">
@@ -193,9 +279,7 @@ export default function DashboardChat() {
                 {searchQuery ? "No matching contacts" : "No conversations"}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {searchQuery
-                  ? "Try searching by email to find someone"
-                  : "Hire an artisan or buy a product to start chatting"}
+                {searchQuery ? "Try searching by email to find someone" : "Search by email to start a new chat"}
               </p>
             </div>
           ) : (
@@ -216,9 +300,7 @@ export default function DashboardChat() {
                         {convo.participant?.fullName?.charAt(0) || "?"}
                       </AvatarFallback>
                     </Avatar>
-                    {isOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-card" />
-                    )}
+                    {isOnline && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-card" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
@@ -233,14 +315,10 @@ export default function DashboardChat() {
                       <div className="flex items-center gap-1 mt-0.5">
                         {convo.lastMessage.senderId === myProfileId && (
                           <span className="shrink-0">
-                            {convo.lastMessage.isRead ? (
-                              <CheckCheck className="w-3 h-3 text-primary" />
-                            ) : (
-                              <Check className="w-3 h-3 text-muted-foreground" />
-                            )}
+                            {convo.lastMessage.isRead ? <CheckCheck className="w-3 h-3 text-primary" /> : <Check className="w-3 h-3 text-muted-foreground" />}
                           </span>
                         )}
-                        <p className="text-xs text-muted-foreground truncate">{convo.lastMessage.content}</p>
+                        <p className="text-xs text-muted-foreground truncate">{convo.lastMessage.content || "Sent an image"}</p>
                       </div>
                     )}
                   </div>
@@ -284,8 +362,16 @@ export default function DashboardChat() {
               </div>
             </div>
 
+            {/* Off-platform warning */}
+            <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl bg-warning/10 border border-warning/20 px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" strokeWidth={1.5} />
+              <p className="text-[11px] text-warning leading-relaxed">
+                For your safety, keep all transactions on Sintherior. We cannot protect payments or resolve disputes for off-platform deals.
+              </p>
+            </div>
+
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-0">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-sm text-muted-foreground">Loading...</p>
@@ -295,36 +381,81 @@ export default function DashboardChat() {
                   <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                messages.map((msg, idx) => {
                   const senderId = typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
                   const isMine = senderId === myProfileId;
+                  const showAvi = shouldShowAvatar(msg, idx, messages);
+                  const hasMedia = msg.media && msg.media.length > 0;
+
                   return (
-                    <div key={msg._id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl ${
-                        isMine
-                          ? "bg-primary text-primary-foreground rounded-br-md"
-                          : "bg-secondary text-foreground rounded-bl-md"
-                      }`}>
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                        <div className={`flex items-center gap-1 justify-end mt-1`}>
-                          <span className={`text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            {formatTime(msg.createdAt)}
-                          </span>
-                          {isMine && (
-                            msg.isRead ? (
-                              <CheckCheck className={`w-3 h-3 ${isMine ? "text-primary-foreground/70" : "text-primary"}`} />
-                            ) : (
-                              <Check className={`w-3 h-3 ${isMine ? "text-primary-foreground/50" : "text-muted-foreground"}`} />
-                            )
-                          )}
+                    <div key={msg._id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${showAvi ? "mb-3" : "mb-0.5"}`}>
+                      {/* Avatar (left side, only for other person) */}
+                      {!isMine && (
+                        <div className="w-7 shrink-0">
+                          {showAvi ? (
+                            <Avatar className="w-7 h-7">
+                              <AvatarImage src={getAvatarUrl(msg, false) || ""} />
+                              <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                                {getInitial(msg, false)}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : null}
                         </div>
+                      )}
+
+                      <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"}`}>
+                        {/* Media */}
+                        {hasMedia && (
+                          <div className="mb-1">
+                            <MediaGrid media={msg.media!} onPreview={setPreviewImage} />
+                          </div>
+                        )}
+
+                        {/* Text bubble */}
+                        {msg.content && (
+                          <div className={`px-3.5 py-2 rounded-2xl ${
+                            isMine
+                              ? "bg-primary text-primary-foreground rounded-br-md"
+                              : "bg-secondary text-foreground rounded-bl-md"
+                          }`}>
+                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                            <div className="flex items-center gap-1 justify-end mt-1">
+                              <span className={`text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                {formatTime(msg.createdAt)}
+                              </span>
+                              {isMine && (
+                                msg.isRead
+                                  ? <CheckCheck className="w-3 h-3 text-primary-foreground/70" />
+                                  : <Check className="w-3 h-3 text-primary-foreground/50" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Time for media-only messages */}
+                        {hasMedia && !msg.content && (
+                          <div className="flex items-center gap-1 justify-end mt-0.5 px-1">
+                            <span className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
+                            {isMine && (
+                              msg.isRead
+                                ? <CheckCheck className="w-3 h-3 text-primary" />
+                                : <Check className="w-3 h-3 text-muted-foreground" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })
               )}
               {typing && (
-                <div className="flex justify-start">
+                <div className="flex items-end gap-2 justify-start mb-3">
+                  <Avatar className="w-7 h-7">
+                    <AvatarImage src={resolveAssetUrl(activeConvo.participant?.avatarUrl || "")} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                      {activeConvo.participant?.fullName?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="bg-secondary px-4 py-2.5 rounded-2xl rounded-bl-md">
                     <div className="flex gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:0ms]" />
@@ -337,8 +468,48 @@ export default function DashboardChat() {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Quick-reply chips */}
+            {messages.length === 0 && (
+              <div className="px-4 pt-2 flex flex-wrap gap-2">
+                {["Hello! I'm interested in your services", "What are your rates?", "Are you available this week?", "Can you share more details?"].map((text) => (
+                  <button key={text} type="button" onClick={() => setNewMessage(text)} className="px-3 py-1.5 rounded-full border border-border bg-secondary/50 text-xs text-foreground hover:bg-secondary transition-colors">
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* File previews */}
+            {filePreviews.length > 0 && (
+              <div className="px-4 pt-2 flex gap-2">
+                {filePreviews.map((preview, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-border">
+                    <img src={preview} alt="" className="w-full h-full object-cover" />
+                    <button onClick={() => removeFile(i)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Input */}
-            <form onSubmit={handleSend} className="p-4 border-t border-border shrink-0 flex gap-2">
+            <form onSubmit={handleSend} className="p-4 border-t border-border shrink-0 flex gap-2 items-end">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground transition-colors shrink-0"
+              >
+                <ImagePlus className="w-5 h-5" strokeWidth={1} />
+              </button>
               <input
                 type="text"
                 placeholder="Type a message..."
@@ -349,8 +520,8 @@ export default function DashboardChat() {
               />
               <button
                 type="submit"
-                disabled={!newMessage.trim() || sending}
-                className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
+                className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -363,6 +534,9 @@ export default function DashboardChat() {
           </div>
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && <ImagePreview url={previewImage} onClose={() => setPreviewImage(null)} />}
     </div>
   );
 }

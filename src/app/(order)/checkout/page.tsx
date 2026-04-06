@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/hooks/useAuth";
 import { apiPost } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +14,24 @@ import { toast } from "sonner";
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", city: "", note: "" });
+  const [form, setForm] = useState({
+    name: profile?.full_name || "",
+    phone: profile?.phone || "",
+    address: "",
+    city: [profile?.city, profile?.state].filter(Boolean).join(", ") || "",
+    note: "",
+  });
   const [paymentMethod, setPaymentMethod] = useState("Pay on Delivery");
 
   if (items.length === 0) {
     router.push("/cart");
+    return null;
+  }
+
+  if (user && !user.isEmailVerified) {
+    router.push("/verify-email");
     return null;
   }
 

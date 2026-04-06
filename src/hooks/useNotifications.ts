@@ -1,15 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
+import { acquireSocket, releaseSocket } from "@/lib/socket";
 import { useAuth } from "./useAuth";
 
 export interface Notification {
   _id: string;
   title: string;
-  message: string;
+  body?: string;
+  message?: string;
   type: string;
   isRead: boolean;
-  link: string | null;
+  data?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -27,7 +29,9 @@ export const useNotifications = () => {
       return;
     }
     try {
-      const res = await apiGet<{ data: Notification[] }>("/notifications?limit=30");
+      const res = await apiGet<{ data: Notification[] }>(
+        "/notifications?limit=30"
+      );
       setNotifications(res.data || []);
     } catch {
       // silent
@@ -36,22 +40,47 @@ export const useNotifications = () => {
     }
   }, [isAuthenticated]);
 
-  // Initial fetch + polling every 30s
+  // Fetch once on mount + listen for real-time notifications via shared socket
   useEffect(() => {
     if (!isAuthenticated) {
       setNotifications([]);
       setLoading(false);
       return;
     }
+
+    let mounted = true;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+
+    const s = acquireSocket();
+    if (s) {
+      const handler = (notification: Notification) => {
+        if (!mounted) return;
+        setNotifications((prev) => {
+          if (prev.some((n) => n._id === notification._id)) return prev;
+          return [notification, ...prev];
+        });
+      };
+
+      s.on("notification:new", handler);
+
+      return () => {
+        mounted = false;
+        s.off("notification:new", handler);
+        releaseSocket();
+      };
+    }
+
+    return () => {
+      mounted = false;
+    };
   }, [isAuthenticated, fetchNotifications]);
 
   const markAsRead = async (id: string) => {
     try {
       await apiPatch(`/notifications/${id}/read`);
-      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
+      );
     } catch {
       // silent
     }

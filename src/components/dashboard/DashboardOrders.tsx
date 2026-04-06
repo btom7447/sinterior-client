@@ -12,7 +12,6 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-  Eye,
   X,
   MessageCircle,
   Star,
@@ -88,6 +87,7 @@ export default function DashboardOrders() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
@@ -109,6 +109,7 @@ export default function DashboardOrders() {
   }, [fetchOrders]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    setStatusUpdating(true);
     try {
       await apiPatch(`/orders/${orderId}/status`, { status: newStatus });
       toast.success(`Order ${newStatus}`);
@@ -118,15 +119,29 @@ export default function DashboardOrders() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
   const handleMessageParty = async (participantId: string) => {
+    if (!selectedOrder) return;
     try {
-      // Send an initial message to start the conversation
+      const itemsSummary = selectedOrder.items
+        .map((i) => `${i.name} x${i.quantity}`)
+        .join(", ");
+      const content = [
+        `Order #${selectedOrder._id.slice(-8).toUpperCase()}`,
+        `Items: ${itemsSummary}`,
+        `Total: ${formatCurrency(selectedOrder.totalAmount)}`,
+        `Status: ${STATUS_CONFIG[selectedOrder.status].label}`,
+        `---`,
+        `Hi! I'd like to discuss this order.`,
+      ].join("\n");
+
       await apiPost("/chat/messages", {
         receiverId: participantId,
-        content: `Hi! I'd like to discuss order #${selectedOrder?._id.slice(-6).toUpperCase()}.`,
+        content,
       });
       router.push("/dashboard/chat");
     } catch (err) {
@@ -253,7 +268,6 @@ export default function DashboardOrders() {
                     {statusCfg.label}
                   </span>
                 </div>
-                <Eye className="w-4 h-4 text-muted-foreground shrink-0" strokeWidth={1} />
               </div>
             );
           })}
@@ -279,13 +293,26 @@ export default function DashboardOrders() {
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Status */}
+              {/* Order ID & Status */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status</span>
+                <span className="text-xs text-muted-foreground font-mono">#{selectedOrder._id.slice(-8).toUpperCase()}</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selectedOrder.status].color}`}>
                   {STATUS_CONFIG[selectedOrder.status].label}
                 </span>
               </div>
+
+              {/* Buyer info (supplier view) */}
+              {isSupplier && selectedOrder.buyerId && (
+                <div className="flex items-center gap-3 bg-secondary/50 rounded-xl p-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                    {selectedOrder.buyerId.fullName?.charAt(0) || "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{selectedOrder.buyerId.fullName}</p>
+                    {selectedOrder.buyerId.city && <p className="text-xs text-muted-foreground">{selectedOrder.buyerId.city}</p>}
+                  </div>
+                </div>
+              )}
 
               {/* Items */}
               <div>
@@ -319,6 +346,18 @@ export default function DashboardOrders() {
                   <span className="text-muted-foreground">Payment</span>
                   <span className="text-foreground capitalize">{selectedOrder.paymentMethod || "N/A"}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment Status</span>
+                  <span className={`capitalize font-medium ${selectedOrder.paymentStatus === "paid" ? "text-success" : selectedOrder.paymentStatus === "failed" ? "text-destructive" : "text-warning"}`}>
+                    {selectedOrder.paymentStatus || "pending"}
+                  </span>
+                </div>
+                {selectedOrder.updatedAt !== selectedOrder.createdAt && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last Updated</span>
+                    <span className="text-foreground">{formatDate(selectedOrder.updatedAt)}</span>
+                  </div>
+                )}
                 {selectedOrder.deliveryAddress && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery</span>
@@ -373,13 +412,14 @@ export default function DashboardOrders() {
                         <button
                           key={next}
                           onClick={() => handleStatusUpdate(selectedOrder._id, next)}
-                          className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          disabled={statusUpdating}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                             next === "cancelled"
                               ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                               : "bg-primary/10 text-primary hover:bg-primary/20"
                           }`}
                         >
-                          {STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
+                          {statusUpdating ? "..." : STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
                         </button>
                       ))}
                     </div>

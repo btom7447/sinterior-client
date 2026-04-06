@@ -10,46 +10,36 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useArtisanSearch } from "@/hooks/useArtisanSearch";
 import LocationPermissionBanner from "@/components/artisan/LocationPermissionBanner";
 import ArtisanCard from "@/components/artisan/ArtisanCard";
+import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 
-const allSuggestions = [
-  "Electrical", "Electrician", "Electrical wiring", "Electrical repair",
-  "Plumbing", "Plumber", "Pipe fitting", "Plumbing repair",
-  "Painting", "Painter", "Interior painting", "Exterior painting",
-  "Carpentry", "Carpenter", "Wood work", "Furniture making",
-  "Masonry", "Mason", "Brick laying", "Block work",
-  "Roofing", "Roofer", "Roof repair", "Roof installation",
-  "Tiling", "Tiler", "Floor tiling", "Wall tiling",
-  "Welding", "Welder", "Gate fabrication",
-  "POP ceiling", "Screeding", "Plastering",
-];
+const allSuggestions = ARTISAN_SKILL_CATEGORIES.flatMap((cat) => [
+  cat.name,
+  ...cat.skills.slice(0, 3),
+]);
 
 export default function ArtisanPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { latitude, longitude, loading: geoLoading, error: geoError, permissionStatus, requestLocation } = useGeolocation();
 
+  const hasLocation = !!(latitude && longitude);
+
   const { data: artisans, isLoading, error } = useArtisanSearch({
-    latitude,
-    longitude,
+    latitude: nearbyEnabled ? latitude : null,
+    longitude: nearbyEnabled ? longitude : null,
     radiusKm,
     category: selectedCategory,
     limit: 20,
-    enabled: !geoLoading,
   });
 
   const categories = [
     { id: null, label: "All Services" },
-    { id: "electrical", label: "Electrical" },
-    { id: "plumbing", label: "Plumbing" },
-    { id: "painting", label: "Painting" },
-    { id: "carpentry", label: "Carpentry" },
-    { id: "masonry", label: "Masonry" },
-    { id: "roofing", label: "Roofing" },
-    { id: "tiling", label: "Tiling" },
+    ...ARTISAN_SKILL_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.name })),
   ];
 
   const radiusOptions = [10, 25, 50, 100, 200];
@@ -105,7 +95,10 @@ export default function ArtisanPage() {
           permissionStatus={permissionStatus}
           loading={geoLoading}
           error={geoError}
+          hasLocation={hasLocation}
+          nearbyEnabled={nearbyEnabled}
           onRequestLocation={requestLocation}
+          onToggleNearby={() => setNearbyEnabled((prev) => !prev)}
         />
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -147,7 +140,7 @@ export default function ArtisanPage() {
           </Button>
         </div>
 
-        {latitude && longitude && (
+        {nearbyEnabled && hasLocation && (
           <div className="flex items-center gap-2 mb-6">
             <span className="text-sm text-muted-foreground">Search radius:</span>
             <div className="flex gap-2">
@@ -186,7 +179,7 @@ export default function ArtisanPage() {
 
         <p className="text-muted-foreground text-sm mb-6">
           {isLoading ? "Searching..." : `Showing ${filteredArtisans?.length || 0} artisans`}
-          {latitude && longitude && ` within ${radiusKm} km`}
+          {nearbyEnabled && hasLocation && ` within ${radiusKm} km`}
         </p>
 
         {isLoading && (

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
+import { formatNaira } from "@/lib/constants";
 import { resolveAssetUrl } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -11,9 +12,9 @@ import {
   CheckCircle2,
   XCircle,
   Play,
+  CreditCard,
   ChevronLeft,
   ChevronRight,
-  Eye,
   X,
   MessageCircle,
   Star,
@@ -38,6 +39,7 @@ interface Job {
   budget?: number;
   location?: string;
   status: "pending" | "accepted" | "in_progress" | "completed" | "cancelled";
+  paymentStatus?: "pending" | "paid" | "failed";
   startDate?: string;
   endDate?: string;
   createdAt: string;
@@ -80,6 +82,8 @@ export default function DashboardJobs() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
 
   const fetchJobs = useCallback(async (page = 1) => {
     setLoading(true);
@@ -96,12 +100,14 @@ export default function DashboardJobs() {
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
   const updateStatus = async (id: string, status: string) => {
+    setStatusUpdating(true);
     try {
       await apiPatch(`/jobs/${id}/status`, { status });
       toast.success(`Job ${status.replace("_", " ")}`);
       fetchJobs(pagination.page);
       if (selected?._id === id) setSelected((p) => p ? { ...p, status: status as Job["status"] } : null);
     } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setStatusUpdating(false); }
   };
 
   const handleMessage = async (participantId: string) => {
@@ -133,6 +139,20 @@ export default function DashboardJobs() {
       toast.error(err instanceof Error ? err.message : "Failed to submit review");
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const handlePay = async (jobId: string) => {
+    setPayLoading(true);
+    try {
+      const data = await apiPost<{ data: { authorization_url: string } }>("/payments/initialize", {
+        type: "job",
+        entityId: jobId,
+      });
+      window.location.href = data.data.authorization_url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to initialize payment");
+      setPayLoading(false);
     }
   };
 
@@ -204,7 +224,6 @@ export default function DashboardJobs() {
                   {job.budget != null && <p className="text-sm font-bold text-foreground">{fmt(job.budget)}</p>}
                   <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>{cfg.label}</span>
                 </div>
-                <Eye className="w-4 h-4 text-muted-foreground shrink-0" strokeWidth={1} />
               </div>
             );
           })}
@@ -234,6 +253,14 @@ export default function DashboardJobs() {
                 {selected.budget != null && <div className="flex justify-between"><span className="text-muted-foreground">Budget</span><span className="font-semibold">{fmt(selected.budget)}</span></div>}
                 {selected.location && <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{selected.location}</span></div>}
                 <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status].color}`}>{STATUS_CONFIG[selected.status].label}</span></div>
+                {selected.budget != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Payment</span>
+                    <span className={`capitalize font-medium ${selected.paymentStatus === "paid" ? "text-success" : selected.paymentStatus === "failed" ? "text-destructive" : "text-warning"}`}>
+                      {selected.paymentStatus || "pending"}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{fmtDate(selected.createdAt)}</span></div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{isArtisan ? "Client" : "Artisan"}</span>
@@ -255,6 +282,18 @@ export default function DashboardJobs() {
                   {isArtisan ? "Message Client" : "Message Artisan"}
                 </button>
 
+                {/* Pay button (client only, unpaid jobs with budget) */}
+                {!isArtisan && selected.budget != null && selected.budget > 0 && selected.paymentStatus !== "paid" && selected.status !== "cancelled" && selected.status !== "pending" && (
+                  <button
+                    onClick={() => handlePay(selected._id)}
+                    disabled={payLoading}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4" strokeWidth={1} />
+                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.budget)}`}
+                  </button>
+                )}
+
                 {/* Review button (client only, completed jobs) */}
                 {!isArtisan && selected.status === "completed" && (
                   <button
@@ -272,8 +311,8 @@ export default function DashboardJobs() {
                     <p className="text-xs text-muted-foreground mb-2">Update Status</p>
                     <div className="flex gap-2">
                       {transitions[selected.status].map((next) => (
-                        <button key={next} onClick={() => updateStatus(selected._id, next)} className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${next === "cancelled" ? "bg-destructive/10 text-destructive hover:bg-destructive/20" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
-                          {STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
+                        <button key={next} onClick={() => updateStatus(selected._id, next)} disabled={statusUpdating} className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${next === "cancelled" ? "bg-destructive/10 text-destructive hover:bg-destructive/20" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
+                          {statusUpdating ? "..." : STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
                         </button>
                       ))}
                     </div>
