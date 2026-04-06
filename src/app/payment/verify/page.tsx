@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { apiGet } from "@/lib/apiClient";
@@ -8,6 +8,21 @@ import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function PaymentVerifyPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <h2 className="text-lg font-bold text-foreground">Verifying payment...</h2>
+        </div>
+      </AppLayout>
+    }>
+      <PaymentVerifyContent />
+    </Suspense>
+  );
+}
+
+function PaymentVerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get("reference");

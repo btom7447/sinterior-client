@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { apiGet, apiPost } from "@/lib/apiClient";
@@ -10,6 +10,21 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <h2 className="text-lg font-bold text-foreground">Loading...</h2>
+        </div>
+      </AppLayout>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, refreshProfile } = useAuth();
