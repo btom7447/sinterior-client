@@ -12,7 +12,6 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-  Eye,
   X,
   MessageCircle,
   Star,
@@ -88,6 +87,7 @@ export default function DashboardOrders() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
@@ -109,6 +109,7 @@ export default function DashboardOrders() {
   }, [fetchOrders]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    setStatusUpdating(true);
     try {
       await apiPatch(`/orders/${orderId}/status`, { status: newStatus });
       toast.success(`Order ${newStatus}`);
@@ -118,6 +119,8 @@ export default function DashboardOrders() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -265,7 +268,6 @@ export default function DashboardOrders() {
                     {statusCfg.label}
                   </span>
                 </div>
-                <Eye className="w-4 h-4 text-muted-foreground shrink-0" strokeWidth={1} />
               </div>
             );
           })}
@@ -410,13 +412,14 @@ export default function DashboardOrders() {
                         <button
                           key={next}
                           onClick={() => handleStatusUpdate(selectedOrder._id, next)}
-                          className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          disabled={statusUpdating}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                             next === "cancelled"
                               ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                               : "bg-primary/10 text-primary hover:bg-primary/20"
                           }`}
                         >
-                          {STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
+                          {statusUpdating ? "..." : STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
                         </button>
                       ))}
                     </div>

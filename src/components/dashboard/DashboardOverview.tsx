@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag } from "lucide-react";
+import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,23 +33,34 @@ const DashboardOverview = () => {
   const [stats, setStats] = useState<Stats>({});
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPortfolio, setHasPortfolio] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [statsRes, ordersRes] = await Promise.all([
+        const fetches: Promise<unknown>[] = [
           apiGet<{ data: { stats: Stats } }>("/dashboard/stats"),
           apiGet<{ data: { orders: RecentOrder[] } }>("/dashboard/recent-orders"),
-        ]);
+        ];
+        if (profile?.role === "artisan") {
+          fetches.push(apiGet<{ data: { portfolio?: { url: string }[] } }>("/artisans/me"));
+        }
+        const results = await Promise.all(fetches);
+        const statsRes = results[0] as { data: { stats: Stats } };
+        const ordersRes = results[1] as { data: { orders: RecentOrder[] } };
         setStats(statsRes.data.stats);
         setRecentOrders(ordersRes.data.orders);
+        if (profile?.role === "artisan" && results[2]) {
+          const artisanRes = results[2] as { data: { portfolio?: { url: string }[] } };
+          setHasPortfolio(!!(artisanRes.data?.portfolio && artisanRes.data.portfolio.length > 0));
+        }
       } catch {
         // silent — dashboard still renders
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [profile?.role]);
 
   const fmt = (n?: number) => `₦${(n || 0).toLocaleString("en-NG")}`;
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-NG", { day: "numeric", month: "short" });
@@ -88,6 +99,24 @@ const DashboardOverview = () => {
           Here&apos;s what&apos;s happening with your account today.
         </p>
       </div>
+
+      {/* Portfolio Banner (artisans with no portfolio) */}
+      {role === "artisan" && !loading && !hasPortfolio && (
+        <Link href="/onboarding/artisan" className="block">
+          <div className="rounded-2xl bg-warning/10 border border-warning/20 p-4 flex items-center gap-4 hover:bg-warning/15 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center shrink-0">
+              <Image className="w-5 h-5 text-warning" strokeWidth={1.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Add your portfolio</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Artisans with portfolio photos get 3x more job requests. Showcase your best work to attract clients.
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-warning shrink-0" strokeWidth={1.5} />
+          </div>
+        </Link>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

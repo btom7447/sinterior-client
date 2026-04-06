@@ -24,6 +24,7 @@ export interface ChatMessage {
   senderId: { _id: string; fullName: string; avatarUrl: string | null } | string;
   receiverId: { _id: string; fullName: string; avatarUrl: string | null } | string;
   content: string;
+  media?: string[];
   isRead: boolean;
   createdAt: string;
 }

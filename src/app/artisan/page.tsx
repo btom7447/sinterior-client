@@ -10,18 +10,12 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useArtisanSearch } from "@/hooks/useArtisanSearch";
 import LocationPermissionBanner from "@/components/artisan/LocationPermissionBanner";
 import ArtisanCard from "@/components/artisan/ArtisanCard";
+import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 
-const allSuggestions = [
-  "Electrical", "Electrician", "Electrical wiring", "Electrical repair",
-  "Plumbing", "Plumber", "Pipe fitting", "Plumbing repair",
-  "Painting", "Painter", "Interior painting", "Exterior painting",
-  "Carpentry", "Carpenter", "Wood work", "Furniture making",
-  "Masonry", "Mason", "Brick laying", "Block work",
-  "Roofing", "Roofer", "Roof repair", "Roof installation",
-  "Tiling", "Tiler", "Floor tiling", "Wall tiling",
-  "Welding", "Welder", "Gate fabrication",
-  "POP ceiling", "Screeding", "Plastering",
-];
+const allSuggestions = ARTISAN_SKILL_CATEGORIES.flatMap((cat) => [
+  cat.name,
+  ...cat.skills.slice(0, 3),
+]);
 
 export default function ArtisanPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,13 +39,7 @@ export default function ArtisanPage() {
 
   const categories = [
     { id: null, label: "All Services" },
-    { id: "electrical", label: "Electrical" },
-    { id: "plumbing", label: "Plumbing" },
-    { id: "painting", label: "Painting" },
-    { id: "carpentry", label: "Carpentry" },
-    { id: "masonry", label: "Masonry" },
-    { id: "roofing", label: "Roofing" },
-    { id: "tiling", label: "Tiling" },
+    ...ARTISAN_SKILL_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.name })),
   ];
 
   const radiusOptions = [10, 25, 50, 100, 200];

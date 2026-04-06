@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 
 export interface ArtisanFormData {
   skillCategory: string;
@@ -25,22 +26,11 @@ interface ArtisanDetailsFormProps {
   isLoading?: boolean;
 }
 
-const skillCategories = [
-  { id: "masonry", name: "Masonry & Bricklaying", skills: ["Bricklayer", "Block Layer", "Stone Mason", "Tile Setter", "Plasterer"] },
-  { id: "carpentry", name: "Carpentry & Woodwork", skills: ["Carpenter", "Furniture Maker", "Cabinet Maker", "Roof Carpenter", "Wood Finisher"] },
-  { id: "electrical", name: "Electrical", skills: ["Electrician", "Solar Installer", "Generator Technician", "CCTV Installer", "Fire Alarm Technician"] },
-  { id: "plumbing", name: "Plumbing", skills: ["Plumber", "Pipe Fitter", "Water Tank Installer", "Drainage Specialist", "Pump Technician"] },
-  { id: "painting", name: "Painting & Finishing", skills: ["Painter", "POP Installer", "Wallpaper Installer", "Screeder", "Floor Polisher"] },
-  { id: "welding", name: "Welding & Metalwork", skills: ["Welder", "Fabricator", "Iron Bender", "Gate Maker", "Burglar Proof Installer"] },
-  { id: "roofing", name: "Roofing", skills: ["Roofer", "Aluminum Installer", "Gutter Installer", "Ceiling Installer", "Waterproofing Specialist"] },
-  { id: "hvac", name: "HVAC & Cooling", skills: ["AC Technician", "Refrigerator Technician", "Ventilation Installer", "Cold Room Technician"] },
-];
-
 const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading = false }: ArtisanDetailsFormProps) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  const selectedCategory = skillCategories.find((cat) => cat.id === formData.skillCategory);
+  const selectedCategory = ARTISAN_SKILL_CATEGORIES.find((cat) => cat.id === formData.skillCategory);
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
@@ -77,7 +67,7 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
           required
         >
           <option value="">Select category</option>
-          {skillCategories.map((category) => (
+          {ARTISAN_SKILL_CATEGORIES.map((category) => (
             <option key={category.id} value={category.id}>{category.name}</option>
           ))}
         </select>

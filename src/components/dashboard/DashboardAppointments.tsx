@@ -37,6 +37,7 @@ export default function DashboardAppointments() {
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const fetch = useCallback(async (page = 1) => {
     setLoading(true);
@@ -54,11 +55,13 @@ export default function DashboardAppointments() {
   useEffect(() => { fetch(); }, [fetch]);
 
   const updateStatus = async (id: string, status: string) => {
+    setStatusUpdating(true);
     try {
       await apiPatch(`/appointments/${id}/status`, { status });
       toast.success(`Appointment ${status}`);
       fetch(pagination.page);
     } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setStatusUpdating(false); }
   };
 
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short" });
@@ -132,13 +135,13 @@ export default function DashboardAppointments() {
                 </div>
                 {apt.status === "scheduled" && (
                   <div className="flex gap-2 mt-3 pt-3 border-t border-border">
-                    <button onClick={() => updateStatus(apt._id, "completed")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/10 text-success hover:bg-success/20 transition-colors">
+                    <button onClick={() => updateStatus(apt._id, "completed")} disabled={statusUpdating} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors">
                       <CheckCircle2 className="w-3 h-3" /> Complete
                     </button>
-                    <button onClick={() => updateStatus(apt._id, "cancelled")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors">
+                    <button onClick={() => updateStatus(apt._id, "cancelled")} disabled={statusUpdating} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors">
                       <XCircle className="w-3 h-3" /> Cancel
                     </button>
-                    <button onClick={() => updateStatus(apt._id, "no_show")} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning/10 text-warning hover:bg-warning/20 transition-colors">
+                    <button onClick={() => updateStatus(apt._id, "no_show")} disabled={statusUpdating} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning/10 text-warning hover:bg-warning/20 disabled:opacity-50 transition-colors">
                       No Show
                     </button>
                   </div>

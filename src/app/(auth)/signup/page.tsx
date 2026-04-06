@@ -14,7 +14,7 @@ import ArtisanDetailsForm, { ArtisanFormData } from "@/components/signup/Artisan
 function SignupContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, refreshProfile } = useAuth();
 
   const initialRole = searchParams.get("role") || "";
   const [step, setStep] = useState(initialRole ? 2 : 1);
@@ -74,6 +74,7 @@ function SignupContent() {
         fullName: accountData.fullName,
         city: accountData.city,
         state: accountData.state,
+        phone: accountData.phone,
       });
 
       const profileId = data.data.user.profile?.id;
@@ -84,6 +85,7 @@ function SignupContent() {
           const form = new FormData();
           form.append("avatar", accountData.avatarFile);
           await apiUpload("/profiles/me/avatar", form);
+          await refreshProfile(); // reload profile so avatar shows immediately
         } catch {
           // Non-fatal — user can upload avatar from profile settings
         }
