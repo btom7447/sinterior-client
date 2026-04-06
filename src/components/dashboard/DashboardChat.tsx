@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useChat, useMessages, type Conversation, type SearchResult } from "@/hooks/useChat";
 import { resolveAssetUrl } from "@/types/api";
-import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck } from "lucide-react";
+import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck, AlertTriangle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -284,6 +284,14 @@ export default function DashboardChat() {
               </div>
             </div>
 
+            {/* Off-platform warning */}
+            <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl bg-warning/10 border border-warning/20 px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" strokeWidth={1.5} />
+              <p className="text-[11px] text-warning leading-relaxed">
+                For your safety, keep all transactions on Sintherior. We cannot protect payments or resolve disputes for off-platform deals.
+              </p>
+            </div>
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
               {loadingMessages ? (
@@ -336,6 +344,22 @@ export default function DashboardChat() {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Quick-reply chips */}
+            {messages.length === 0 && (
+              <div className="px-4 pt-2 flex flex-wrap gap-2">
+                {["Hello! I'm interested in your services", "What are your rates?", "Are you available this week?", "Can you share more details?"].map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => { setNewMessage(text); }}
+                    className="px-3 py-1.5 rounded-full border border-border bg-secondary/50 text-xs text-foreground hover:bg-secondary transition-colors"
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Input */}
             <form onSubmit={handleSend} className="p-4 border-t border-border shrink-0 flex gap-2">

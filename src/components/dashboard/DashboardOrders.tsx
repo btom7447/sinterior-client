@@ -122,11 +122,23 @@ export default function DashboardOrders() {
   };
 
   const handleMessageParty = async (participantId: string) => {
+    if (!selectedOrder) return;
     try {
-      // Send an initial message to start the conversation
+      const itemsSummary = selectedOrder.items
+        .map((i) => `${i.name} x${i.quantity}`)
+        .join(", ");
+      const content = [
+        `Order #${selectedOrder._id.slice(-8).toUpperCase()}`,
+        `Items: ${itemsSummary}`,
+        `Total: ${formatCurrency(selectedOrder.totalAmount)}`,
+        `Status: ${STATUS_CONFIG[selectedOrder.status].label}`,
+        `---`,
+        `Hi! I'd like to discuss this order.`,
+      ].join("\n");
+
       await apiPost("/chat/messages", {
         receiverId: participantId,
-        content: `Hi! I'd like to discuss order #${selectedOrder?._id.slice(-6).toUpperCase()}.`,
+        content,
       });
       router.push("/dashboard/chat");
     } catch (err) {
@@ -279,13 +291,26 @@ export default function DashboardOrders() {
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Status */}
+              {/* Order ID & Status */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status</span>
+                <span className="text-xs text-muted-foreground font-mono">#{selectedOrder._id.slice(-8).toUpperCase()}</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selectedOrder.status].color}`}>
                   {STATUS_CONFIG[selectedOrder.status].label}
                 </span>
               </div>
+
+              {/* Buyer info (supplier view) */}
+              {isSupplier && selectedOrder.buyerId && (
+                <div className="flex items-center gap-3 bg-secondary/50 rounded-xl p-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                    {selectedOrder.buyerId.fullName?.charAt(0) || "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{selectedOrder.buyerId.fullName}</p>
+                    {selectedOrder.buyerId.city && <p className="text-xs text-muted-foreground">{selectedOrder.buyerId.city}</p>}
+                  </div>
+                </div>
+              )}
 
               {/* Items */}
               <div>
@@ -319,6 +344,18 @@ export default function DashboardOrders() {
                   <span className="text-muted-foreground">Payment</span>
                   <span className="text-foreground capitalize">{selectedOrder.paymentMethod || "N/A"}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment Status</span>
+                  <span className={`capitalize font-medium ${selectedOrder.paymentStatus === "paid" ? "text-success" : selectedOrder.paymentStatus === "failed" ? "text-destructive" : "text-warning"}`}>
+                    {selectedOrder.paymentStatus || "pending"}
+                  </span>
+                </div>
+                {selectedOrder.updatedAt !== selectedOrder.createdAt && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last Updated</span>
+                    <span className="text-foreground">{formatDate(selectedOrder.updatedAt)}</span>
+                  </div>
+                )}
                 {selectedOrder.deliveryAddress && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery</span>

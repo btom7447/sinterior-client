@@ -86,7 +86,8 @@ export const useGeolocation = (options?: PositionOptions) => {
         }
       });
     } else {
-      requestLocation();
+      // No Permissions API — don't auto-trigger the browser prompt
+      setState((prev) => ({ ...prev, loading: false }));
     }
   }, [requestLocation]);
 

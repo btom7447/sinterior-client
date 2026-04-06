@@ -1,10 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { io, Socket } from "socket.io-client";
+import { Socket } from "socket.io-client";
 import { apiGet } from "@/lib/apiClient";
+import { acquireSocket, releaseSocket } from "@/lib/socket";
 import { useAuth } from "./useAuth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") || "http://localhost:5000";
 
 export interface Participant {
   id: string;
@@ -37,44 +36,6 @@ export interface SearchResult {
   canChat: boolean;
 }
 
-// Get the access token from the apiClient module
-let getToken: (() => string | null) | null = null;
-
-async function loadToken() {
-  if (!getToken) {
-    const mod = await import("@/lib/apiClient");
-    getToken = (mod as any).getToken || (() => null);
-  }
-  return getToken?.() ?? null;
-}
-
-// ── Singleton socket connection ──────────────────────────────────────────────
-
-let socket: Socket | null = null;
-let socketRefCount = 0;
-
-function getSocket(token: string): Socket {
-  if (!socket || socket.disconnected) {
-    socket = io(API_BASE, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-    });
-  }
-  socketRefCount++;
-  return socket;
-}
-
-function releaseSocket() {
-  socketRefCount--;
-  if (socketRefCount <= 0 && socket) {
-    socket.disconnect();
-    socket = null;
-    socketRefCount = 0;
-  }
-}
 
 // ── useChat — conversation list + socket events ─────────────────────────────
 
@@ -117,11 +78,9 @@ export const useChat = () => {
 
     let mounted = true;
 
-    const connect = async () => {
-      const token = await loadToken();
-      if (!token || !mounted) return;
-
-      const s = getSocket(token);
+    const connect = () => {
+      const s = acquireSocket();
+      if (!s || !mounted) return;
       socketRef.current = s;
 
       s.on("connect", () => {
@@ -268,11 +227,9 @@ export const useMessages = (conversationId: string | null) => {
     let mounted = true;
     fetchMessages();
 
-    const connect = async () => {
-      const token = await loadToken();
-      if (!token || !mounted) return;
-
-      const s = getSocket(token);
+    const connect = () => {
+      const s = acquireSocket();
+      if (!s || !mounted) return;
       socketRef.current = s;
 
       // Listen for new messages in this conversation
@@ -312,7 +269,7 @@ export const useMessages = (conversationId: string | null) => {
 
     return () => {
       mounted = false;
-      cleanup?.then((fn) => fn?.());
+      cleanup?.();
       releaseSocket();
       socketRef.current = null;
     };

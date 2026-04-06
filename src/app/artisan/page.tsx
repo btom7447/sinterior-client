@@ -28,17 +28,19 @@ export default function ArtisanPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { latitude, longitude, loading: geoLoading, error: geoError, permissionStatus, requestLocation } = useGeolocation();
 
+  const hasLocation = !!(latitude && longitude);
+
   const { data: artisans, isLoading, error } = useArtisanSearch({
-    latitude,
-    longitude,
+    latitude: nearbyEnabled ? latitude : null,
+    longitude: nearbyEnabled ? longitude : null,
     radiusKm,
     category: selectedCategory,
     limit: 20,
-    enabled: !geoLoading,
   });
 
   const categories = [
@@ -105,7 +107,10 @@ export default function ArtisanPage() {
           permissionStatus={permissionStatus}
           loading={geoLoading}
           error={geoError}
+          hasLocation={hasLocation}
+          nearbyEnabled={nearbyEnabled}
           onRequestLocation={requestLocation}
+          onToggleNearby={() => setNearbyEnabled((prev) => !prev)}
         />
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -147,7 +152,7 @@ export default function ArtisanPage() {
           </Button>
         </div>
 
-        {latitude && longitude && (
+        {nearbyEnabled && hasLocation && (
           <div className="flex items-center gap-2 mb-6">
             <span className="text-sm text-muted-foreground">Search radius:</span>
             <div className="flex gap-2">
@@ -186,7 +191,7 @@ export default function ArtisanPage() {
 
         <p className="text-muted-foreground text-sm mb-6">
           {isLoading ? "Searching..." : `Showing ${filteredArtisans?.length || 0} artisans`}
-          {latitude && longitude && ` within ${radiusKm} km`}
+          {nearbyEnabled && hasLocation && ` within ${radiusKm} km`}
         </p>
 
         {isLoading && (

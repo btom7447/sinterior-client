@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { PRODUCT_CATEGORIES, formatNaira } from "@/lib/constants";
 
 interface Product {
   _id: string;
@@ -25,9 +26,9 @@ interface Product {
   category: string;
   price: number;
   unit: string;
+  quantity: number;
   images: string[];
   inStock: boolean;
-  location: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -45,8 +46,7 @@ const EMPTY_FORM = {
   category: "",
   price: "",
   unit: "piece",
-  location: "",
-  inStock: true,
+  quantity: "1",
 };
 
 export default function DashboardProducts() {
@@ -96,8 +96,7 @@ export default function DashboardProducts() {
       category: p.category,
       price: String(p.price),
       unit: p.unit || "piece",
-      location: p.location || "",
-      inStock: p.inStock,
+      quantity: String(p.quantity ?? 1),
     });
     setShowForm(true);
   };
@@ -106,7 +105,8 @@ export default function DashboardProducts() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const body = { ...form, price: Number(form.price) };
+      const qty = Math.max(0, parseInt(form.quantity, 10) || 0);
+      const body = { ...form, price: Number(form.price), quantity: qty, inStock: qty > 0 };
       if (editingId) {
         await apiPatch(`/products/${editingId}`, body);
         toast.success("Product updated");
@@ -142,7 +142,7 @@ export default function DashboardProducts() {
     }
   };
 
-  const formatCurrency = (n: number) => `₦${n.toLocaleString("en-NG")}`;
+  const formatCurrency = formatNaira;
 
   if (loading && products.length === 0) {
     return (
@@ -220,8 +220,8 @@ export default function DashboardProducts() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-bold text-foreground">{formatCurrency(p.price)}</p>
-                <span className={`text-[10px] font-medium ${p.inStock ? "text-success" : "text-destructive"}`}>
-                  {p.inStock ? "In Stock" : "Out of Stock"}
+                <span className={`text-[10px] font-medium ${p.quantity > 0 ? "text-success" : "text-destructive"}`}>
+                  {p.quantity > 0 ? `${p.quantity} in stock` : "Out of Stock"}
                 </span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -270,29 +270,31 @@ export default function DashboardProducts() {
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Category *</label>
-                <input required maxLength={100} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="">Select a category</option>
+                  {PRODUCT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground">Price *</label>
-                  <input required type="number" min={0} step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  <label className="text-sm font-medium text-foreground">Price (₦) *</label>
+                  <input required type="number" min={0} step="1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  {form.price && <p className="text-xs text-muted-foreground mt-1">{formatNaira(Number(form.price))}</p>}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">Quantity *</label>
+                  <input required type="number" min={0} step="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground">Unit</label>
-                  <input maxLength={30} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  <input maxLength={30} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="piece" className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Description</label>
                 <textarea maxLength={2000} rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Location</label>
-                <input maxLength={150} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="inStock" checked={form.inStock} onChange={(e) => setForm({ ...form, inStock: e.target.checked })} className="rounded" />
-                <label htmlFor="inStock" className="text-sm text-foreground">In Stock</label>
               </div>
               <button
                 type="submit"
