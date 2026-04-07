@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
 import { MapPin, Clock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Careers at Sintherior",
+  description:
+    "Join the team building Nigeria's most trusted marketplace for artisans, suppliers, and construction materials. Open engineering, design, and operations roles.",
+  alternates: { canonical: "/careers" },
+  openGraph: {
+    title: "Careers at Sintherior",
+    description:
+      "Open roles at Sintherior — help us build the future of construction in Nigeria.",
+    url: "/careers",
+    type: "website",
+  },
+};
 
 const openings = [
   {

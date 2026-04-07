@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "How Sintherior collects, uses, and protects your personal data. Compliant with the Nigeria Data Protection Act 2023 and GDPR where applicable.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
+};
 
 const sections = [
   {

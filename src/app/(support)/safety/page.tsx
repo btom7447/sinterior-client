@@ -1,6 +1,21 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
 import { ShieldCheck, AlertTriangle, Eye, Phone, FileText, Users } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Trust & Safety",
+  description:
+    "How Sintherior keeps clients, artisans, and suppliers safe — verified identities, secure payments, dispute resolution, and reporting tools.",
+  alternates: { canonical: "/safety" },
+  openGraph: {
+    title: "Trust & Safety at Sintherior",
+    description:
+      "Verified identities, secure payments, and dispute resolution for every project on Sintherior.",
+    url: "/safety",
+    type: "website",
+  },
+};
 
 const pillars = [
   {

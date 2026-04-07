@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Users, ShoppingBag, Wrench, MapPin, Navigation } from "lucide-react";
@@ -114,11 +115,15 @@ const HeroSection = () => {
 
           {/* Visual */}
           <div data-aos="fade-left" className="relative">
-            <div className="relative rounded-3xl overflow-hidden shadow-elevated">
-              <img
-                src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80"
-                alt="Construction workers"
-                className="w-full h-[400px] lg:h-[500px] object-cover"
+            <div className="relative rounded-3xl overflow-hidden shadow-elevated h-[400px] lg:h-[500px]">
+              <Image
+                src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1200&q=80"
+                alt="Skilled construction workers collaborating on a Sintherior project site"
+                fill
+                priority
+                fetchPriority="high"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
 
