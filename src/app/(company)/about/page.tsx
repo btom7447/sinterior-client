@@ -1,5 +1,20 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import { Users, Target, Award, Globe } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "About Sintherior",
+  description:
+    "Sintherior is building Nigeria's most trusted marketplace for construction professionals and building materials. Learn our story, mission, and values.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "About Sintherior",
+    description:
+      "Learn how Sintherior connects verified artisans, quality suppliers, and clients across Nigeria.",
+    url: "/about",
+    type: "website",
+  },
+};
 
 const stats = [
   { value: "5,000+", label: "Active Artisans" },

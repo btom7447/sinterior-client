@@ -1,6 +1,21 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
 import { Clock, ArrowRight } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Sintherior Blog — Guides for Building in Nigeria",
+  description:
+    "Practical guides on hiring artisans, sourcing quality materials, managing projects, and building smarter in Nigeria.",
+  alternates: { canonical: "/blog" },
+  openGraph: {
+    title: "Sintherior Blog — Guides for Building in Nigeria",
+    description:
+      "Practical guides on hiring artisans, sourcing materials, and managing construction projects.",
+    url: "/blog",
+    type: "website",
+  },
+};
 
 const featured = {
   slug: "how-to-hire-verified-artisans-nigeria",

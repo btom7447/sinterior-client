@@ -96,25 +96,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true,
   });
 
-  const restoreSession = useCallback(async () => {
-    try {
-      const refreshData = await apiPost<{ data: { accessToken: string } }>(
-        "/auth/refresh"
-      );
-      setToken(refreshData.data.accessToken);
-
-      const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
-      const user = meData.data.user;
-      setState({ user, profile: toProfile(user), loading: false });
-    } catch {
-      setToken(null);
-      setState({ user: null, profile: null, loading: false });
-    }
-  }, []);
-
   useEffect(() => {
-    restoreSession();
-  }, [restoreSession]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Direct fetch (no Content-Type header) avoids a CORS preflight on
+        // this cross-origin POST, matching the tryRefresh() pattern in
+        // apiClient and ensuring the httpOnly cookie is sent reliably.
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (cancelled) return;
+        if (!refreshRes.ok) throw new Error("Refresh failed");
+
+        const refreshJson = await refreshRes.json();
+        if (cancelled) return;
+
+        const accessToken = refreshJson.data?.accessToken;
+        if (!accessToken) throw new Error("No access token in response");
+
+        setToken(accessToken);
+
+        const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
+        if (cancelled) return;
+
+        const user = meData.data.user;
+        setState({ user, profile: toProfile(user), loading: false });
+      } catch {
+        if (!cancelled) {
+          setToken(null);
+          setState({ user: null, profile: null, loading: false });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const signIn = async (email: string, password: string): Promise<AuthResponse> => {
     const data = await apiPost<AuthResponse>("/auth/login", { email, password });
@@ -169,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.data.accessToken);
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     try {
       const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
       const user = meData.data.user;
@@ -177,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // silent
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

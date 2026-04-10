@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const Footer = () => {
   const footerLinks = {
@@ -29,9 +30,7 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-display font-bold text-xl">S</span>
-              </div>
+              <Image src="/logo.png" alt="Sintherior" width={48} height={48} className="rounded-xl" />
               <span className="font-display font-bold text-xl">Sintherior</span>
             </div>
             <p className="text-background/70 text-sm leading-relaxed">

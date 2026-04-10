@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -86,8 +87,9 @@ function SignupContent() {
           form.append("avatar", accountData.avatarFile);
           await apiUpload("/profiles/me/avatar", form);
           await refreshProfile(); // reload profile so avatar shows immediately
-        } catch {
-          // Non-fatal — user can upload avatar from profile settings
+        } catch (err) {
+          console.error("[SIGNUP] Avatar upload failed:", err);
+          toast.error("Profile photo couldn't be uploaded. You can add it later in settings.");
         }
       }
 
@@ -159,9 +161,7 @@ function SignupContent() {
             </Link>
 
             <div className="flex items-center gap-2 mb-8">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-display font-bold text-xl">S</span>
-              </div>
+              <Image src="/logo.png" alt="Sintherior" width={48} height={48} className="rounded-xl" />
               <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
             </div>
 

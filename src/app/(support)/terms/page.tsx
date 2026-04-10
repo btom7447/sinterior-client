@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "The terms and conditions governing use of Sintherior's marketplace for artisans, suppliers, clients, and real estate listings.",
+  alternates: { canonical: "/terms" },
+  robots: { index: true, follow: true },
+};
 
 const sections = [
   {

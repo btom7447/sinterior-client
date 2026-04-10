@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft, ArrowRight, Building2, ShieldCheck,
   Package, Truck, CreditCard, Check, Upload, X,
@@ -533,9 +534,7 @@ export default function SupplierOnboardingPage() {
           {/* Top bar */}
           <div className="flex items-center justify-between mb-8">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-display font-bold text-lg">S</span>
-              </div>
+              <Image src="/logo.png" alt="Sintherior" width={36} height={36} className="rounded-xl" />
               <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
             </Link>
             <button onClick={() => router.push("/dashboard")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
