@@ -1,16 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, X, Home, Package, Wrench, Building2,
-  User, LayoutDashboard, LogOut, MessageCircle, Bell,
+  User, LayoutDashboard, LogOut, MessageCircle, Bell, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useChat } from "@/hooks/useChat";
+import { useNotifications } from "@/hooks/useNotifications";
 import CartIconButton from "@/components/ui/CartIconButton";
 import { toast } from "sonner";
 
@@ -21,17 +22,40 @@ const navLinks = [
   { href: "/real-estate", label: "Real Estate", icon: Building2 },
 ];
 
+const formatTimeAgo = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+
 const MobileHeader = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, profile, signOut } = useAuth();
   const { totalUnread } = useChat();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const close = () => setMenuOpen(false);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const handleSignOut = async () => {
     close();
@@ -54,7 +78,7 @@ const MobileHeader = () => {
           </Link>
 
           <div className="flex items-center gap-0.5">
-            <Link href="/dashboard  /chat" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
+            <Link href="/dashboard/chat" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
               <MessageCircle strokeWidth={1} className="w-5 h-5" />
               {totalUnread > 0 && (
                 <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -63,10 +87,60 @@ const MobileHeader = () => {
               )}
             </Link>
             <CartIconButton />
-            <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
-              <Bell strokeWidth={1} className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
-            </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                className="relative p-2 text-muted-foreground hover:text-primary transition-colors"
+                onClick={() => setNotifOpen((v) => !v)}
+              >
+                <Bell strokeWidth={1} className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-50">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                    <h3 className="font-semibold text-foreground text-sm">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <button onClick={() => markAllAsRead()} className="text-xs text-primary hover:underline">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-border max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <Bell strokeWidth={1} className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifications.slice(0, 8).map((n) => (
+                        <div
+                          key={n._id}
+                          onClick={() => { if (!n.isRead) markAsRead(n._id); }}
+                          className={`px-4 py-3 flex gap-3 cursor-pointer hover:bg-secondary/50 transition-colors ${!n.isRead ? "bg-primary/5" : ""}`}
+                        >
+                          <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${!n.isRead ? "bg-primary" : "bg-transparent"}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">{n.title}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{formatTimeAgo(n.createdAt)}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <Link href="/dashboard" onClick={() => setNotifOpen(false)}>
+                    <div className="px-4 py-3 text-center text-xs text-primary font-semibold border-t border-border hover:bg-secondary/50 transition-colors flex items-center justify-center gap-1">
+                      View all notifications <ChevronRight strokeWidth={1} className="w-3.5 h-3.5" />
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setMenuOpen(true)}
               className="p-2 text-muted-foreground hover:text-primary transition-colors"
