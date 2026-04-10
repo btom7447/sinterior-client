@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.data.accessToken);
   };
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     try {
       const meData = await apiGet<{ data: { user: ApiUser } }>("/auth/me");
       const user = meData.data.user;
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // silent
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
