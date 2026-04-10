@@ -117,6 +117,7 @@ export default function DashboardChat() {
         await apiUpload("/chat/messages", form);
         setNewMessage("");
         setSelectedFiles([]);
+        filePreviews.forEach((url) => URL.revokeObjectURL(url));
         setFilePreviews([]);
         refetch();
       } else {
@@ -124,6 +125,10 @@ export default function DashboardChat() {
         const msg = await sendMessage(newMessage.trim(), receiverId);
         if (msg) {
           setNewMessage("");
+          // Update activeConvo with real conversationId after first message in a new conversation
+          if (!activeConvo?.conversationId && msg.conversationId) {
+            setActiveConvo((prev) => prev ? { ...prev, conversationId: msg.conversationId } : prev);
+          }
           refetch();
         } else {
           toast.error("Failed to send message");
