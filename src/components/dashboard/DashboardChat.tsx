@@ -147,7 +147,13 @@ export default function DashboardChat() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 4);
+    const allFiles = Array.from(e.target.files || []);
+    if (allFiles.length > 4) {
+      toast.error("Maximum 4 images per message");
+    }
+    const files = allFiles.slice(0, 4);
+    // Revoke old previews before creating new ones
+    filePreviews.forEach((url) => URL.revokeObjectURL(url));
     setSelectedFiles(files);
     setFilePreviews(files.map((f) => URL.createObjectURL(f)));
     if (e.target) e.target.value = "";
@@ -486,7 +492,7 @@ export default function DashboardChat() {
 
             {/* File previews */}
             {filePreviews.length > 0 && (
-              <div className="px-4 pt-2 flex gap-2">
+              <div className="px-4 pt-2 flex flex-wrap gap-2">
                 {filePreviews.map((preview, i) => (
                   <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-border">
                     <img src={preview} alt="" className="w-full h-full object-cover" />

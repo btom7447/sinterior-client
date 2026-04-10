@@ -11,8 +11,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Mail, Loader2 } from "lucide-react";
+import { ChevronDown, Mail, Loader2, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useChat } from "@/hooks/useChat";
 import { apiPost } from "@/lib/apiClient";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
@@ -103,6 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { user, profile, loading, isAuthenticated, signOut } = useAuth();
+  const { totalUnread } = useChat();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -159,6 +161,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/dashboard/chat")}
+              className="relative p-2 text-muted-foreground hover:text-primary transition-colors"
+            >
+              <MessageCircle strokeWidth={1} className="w-5 h-5" />
+              {totalUnread > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {totalUnread > 9 ? "9+" : totalUnread}
+                </span>
+              )}
+            </button>
             <NotificationBell />
 
             <DropdownMenu>
