@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,9 +77,7 @@ function ResetPasswordContent() {
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
       <div className="max-w-md w-full">
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-display font-bold text-xl">S</span>
-          </div>
+          <Image src="/logo.png" alt="Sintherior" width={48} height={48} className="rounded-xl" />
           <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
         </div>
 

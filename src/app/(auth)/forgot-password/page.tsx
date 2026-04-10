@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,9 +39,7 @@ export default function ForgotPassword() {
         </Link>
 
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-display font-bold text-xl">S</span>
-          </div>
+          <Image src="/logo.png" alt="Sintherior" width={48} height={48} className="rounded-xl" />
           <span className="font-display font-bold text-xl text-foreground">Sintherior</span>
         </div>
 

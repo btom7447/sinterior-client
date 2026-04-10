@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, X, Home, Package, Wrench, Building2,
@@ -48,14 +49,12 @@ const MobileHeader = () => {
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b border-border lg:hidden">
         <div className="flex items-center justify-between h-14 px-5">
           <Link href="/" className="flex items-center gap-1.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-display font-bold text-base">S</span>
-            </div>
+            <Image src="/logo.png" alt="Sintherior" width={40} height={40} className="rounded-lg" />
             <span className="font-display font-bold text-lg text-foreground">Sintherior</span>
           </Link>
 
           <div className="flex items-center gap-0.5">
-            <Link href="/chat" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
+            <Link href="/dashboard  /chat" className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
               <MessageCircle strokeWidth={1} className="w-5 h-5" />
               {totalUnread > 0 && (
                 <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -84,9 +83,7 @@ const MobileHeader = () => {
           {/* Top bar */}
           <div className="flex items-center justify-between h-14 px-5 border-b border-border shrink-0">
             <Link href="/" onClick={close} className="flex items-center gap-1.5">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-display font-bold text-base">S</span>
-              </div>
+              <Image src="/logo.png" alt="Sintherior" width={40} height={40} className="rounded-lg" />
               <span className="font-display font-bold text-lg text-foreground">Sintherior</span>
             </Link>
             <button

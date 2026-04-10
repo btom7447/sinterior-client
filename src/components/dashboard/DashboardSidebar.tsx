@@ -18,6 +18,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Sidebar,
@@ -93,9 +94,7 @@ export function DashboardSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="p-4 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-primary-foreground font-display font-bold text-base">S</span>
-          </div>
+          <Image src="/logo.png" alt="Sintherior" width={40} height={40} className="rounded-lg shrink-0" />
           {!collapsed && (
             <span className="font-display text-lg font-bold text-sidebar-foreground">
               Sintherior
