@@ -60,6 +60,7 @@ export default function DashboardChat() {
     myProfileId,
     searchByEmail,
     refetch,
+    markConversationRead,
   } = useChat();
 
   const [activeConvo, setActiveConvo] = useState<Conversation | null>(null);
@@ -97,6 +98,14 @@ export default function DashboardChat() {
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mark active conversation as read locally (unread badge should disappear
+  // while the user is viewing the conversation)
+  useEffect(() => {
+    if (activeConvo?.conversationId) {
+      markConversationRead(activeConvo.conversationId);
+    }
+  }, [activeConvo?.conversationId, messages.length, markConversationRead]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
