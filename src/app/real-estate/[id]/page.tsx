@@ -278,9 +278,6 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                     <Button className="flex-1 rounded-xl gap-1.5 text-sm" onClick={() => window.open(`tel:${supplier.phone}`)}>
                       <Phone strokeWidth={1} className="w-4 h-4" /> Call
                     </Button>
-                    <Button variant="outline" className="flex-1 rounded-xl gap-1.5 text-sm" onClick={() => window.open(`https://wa.me/${supplier.phone?.replace(/\D/g, "")}`)}>
-                      <Phone strokeWidth={1} className="w-4 h-4" /> WhatsApp
-                    </Button>
                   </div>
                 )}
 
