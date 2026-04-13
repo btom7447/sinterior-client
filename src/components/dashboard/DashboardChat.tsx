@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat, useMessages, type Conversation, type SearchResult, type ChatMessage } from "@/hooks/useChat";
 import { resolveAssetUrl } from "@/types/api";
 import { apiUpload } from "@/lib/apiClient";
@@ -52,6 +53,7 @@ function ImagePreview({ url, onClose }: { url: string; onClose: () => void }) {
 }
 
 export default function DashboardChat() {
+  const searchParams = useSearchParams();
   const {
     conversations,
     loading: loadingConvos,
@@ -60,6 +62,7 @@ export default function DashboardChat() {
     myProfileId,
     searchByEmail,
     refetch,
+    markConversationRead,
   } = useChat();
 
   const [activeConvo, setActiveConvo] = useState<Conversation | null>(null);
@@ -67,6 +70,35 @@ export default function DashboardChat() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const autoInitRef = useRef(false);
+
+  // Auto-open conversation when navigated with ?recipientId=...
+  useEffect(() => {
+    if (autoInitRef.current || loadingConvos) return;
+    const recipientId = searchParams.get("recipientId");
+    const recipientName = searchParams.get("recipientName");
+    if (!recipientId) return;
+
+    autoInitRef.current = true;
+
+    // Check if we already have a conversation with this person
+    const existing = conversations.find((c) => c.participant?.id === recipientId);
+    if (existing) {
+      setActiveConvo(existing);
+    } else {
+      // Create a temporary conversation entry so we can start messaging
+      setActiveConvo({
+        conversationId: "",
+        lastMessage: null,
+        unreadCount: 0,
+        participant: {
+          id: recipientId,
+          fullName: recipientName || "User",
+          avatarUrl: null,
+        },
+      });
+    }
+  }, [searchParams, conversations, loadingConvos]);
 
   const filteredConvos = searchQuery.trim()
     ? conversations.filter((c) =>
@@ -97,6 +129,14 @@ export default function DashboardChat() {
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mark active conversation as read locally (unread badge should disappear
+  // while the user is viewing the conversation)
+  useEffect(() => {
+    if (activeConvo?.conversationId) {
+      markConversationRead(activeConvo.conversationId);
+    }
+  }, [activeConvo?.conversationId, messages.length, markConversationRead]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -147,7 +187,13 @@ export default function DashboardChat() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 4);
+    const allFiles = Array.from(e.target.files || []);
+    if (allFiles.length > 4) {
+      toast.error("Maximum 4 images per message");
+    }
+    const files = allFiles.slice(0, 4);
+    // Revoke old previews before creating new ones
+    filePreviews.forEach((url) => URL.revokeObjectURL(url));
     setSelectedFiles(files);
     setFilePreviews(files.map((f) => URL.createObjectURL(f)));
     if (e.target) e.target.value = "";
@@ -486,7 +532,7 @@ export default function DashboardChat() {
 
             {/* File previews */}
             {filePreviews.length > 0 && (
-              <div className="px-4 pt-2 flex gap-2">
+              <div className="px-4 pt-2 flex flex-wrap gap-2">
                 {filePreviews.map((preview, i) => (
                   <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-border">
                     <img src={preview} alt="" className="w-full h-full object-cover" />

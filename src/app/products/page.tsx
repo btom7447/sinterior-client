@@ -193,7 +193,7 @@ export default function ProductsPage() {
         <div className="flex gap-8">
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-52 shrink-0">
-            <div className="sticky top-24 bg-card border border-border rounded-2xl overflow-hidden" style={{ maxHeight: "calc(100vh - 7rem)" }}>
+            <div className="sticky top-24 bg-card border border-border rounded-2xl overflow-y-auto" style={{ maxHeight: "calc(100vh - 7rem)" }}>
               <CategorySidebar
                 selected={selectedCategory}
                 onSelect={setSelectedCategory}

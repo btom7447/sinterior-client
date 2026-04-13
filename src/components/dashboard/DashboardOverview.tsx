@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight } from "lucide-react";
+import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight, AlertTriangle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +34,7 @@ const DashboardOverview = () => {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPortfolio, setHasPortfolio] = useState(true);
+  const [hasBusinessInfo, setHasBusinessInfo] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -45,6 +46,9 @@ const DashboardOverview = () => {
         if (profile?.role === "artisan") {
           fetches.push(apiGet<{ data: { portfolio?: { url: string }[] } }>("/artisans/me"));
         }
+        if (profile?.role === "supplier") {
+          fetches.push(apiGet<{ data: { supplier: { businessName?: string; description?: string } } }>("/suppliers/me").catch(() => null));
+        }
         const results = await Promise.all(fetches);
         const statsRes = results[0] as { data: { stats: Stats } };
         const ordersRes = results[1] as { data: { orders: RecentOrder[] } };
@@ -53,6 +57,11 @@ const DashboardOverview = () => {
         if (profile?.role === "artisan" && results[2]) {
           const artisanRes = results[2] as { data: { portfolio?: { url: string }[] } };
           setHasPortfolio(!!(artisanRes.data?.portfolio && artisanRes.data.portfolio.length > 0));
+        }
+        if (profile?.role === "supplier" && results[2]) {
+          const supplierRes = results[2] as { data: { supplier: { businessName?: string; description?: string } } } | null;
+          const s = supplierRes?.data?.supplier;
+          setHasBusinessInfo(!!(s?.businessName && s?.description));
         }
       } catch {
         // silent — dashboard still renders
@@ -77,8 +86,8 @@ const DashboardOverview = () => {
       : role === "supplier"
       ? [
           { label: "Total Revenue", value: fmt(stats.totalRevenue), icon: DollarSign, color: "primary" },
-          { label: "Total Products", value: String(stats.totalProducts || 0), icon: Package, color: "warning" },
-          { label: "Active Products", value: String(stats.activeProducts || 0), icon: CheckCircle2, color: "success" },
+          { label: "Total Products", value: String(stats.totalProducts || 0), icon: Package, color: "success" },
+          { label: "Out of Stock", value: String(stats.outOfStockProducts || 0), icon: AlertTriangle, color: "warning" },
           { label: "Pending Orders", value: String(stats.pendingOrders || 0), icon: Clock, color: "accent" },
         ]
       : [
@@ -114,6 +123,24 @@ const DashboardOverview = () => {
               </p>
             </div>
             <ArrowRight className="w-5 h-5 text-warning shrink-0" strokeWidth={1.5} />
+          </div>
+        </Link>
+      )}
+
+      {/* Business Info Banner (suppliers with incomplete business profile) */}
+      {role === "supplier" && !loading && !hasBusinessInfo && (
+        <Link href="/dashboard/business" className="block">
+          <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4 flex items-center gap-4 hover:bg-primary/15 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-primary" strokeWidth={1.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Complete your business profile</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Suppliers with complete profiles get more visibility. Add your business name, description, and delivery info.
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-primary shrink-0" strokeWidth={1.5} />
           </div>
         </Link>
       )}

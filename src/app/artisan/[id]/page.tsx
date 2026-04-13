@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Star, MapPin, Phone, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
-  Shield, ThumbsUp, Hammer,
+  Shield, ThumbsUp, Hammer, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -235,11 +235,16 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                   </div>
                 ))}
               </div>
-              {phone && (
-                <Button className="w-full mt-6 rounded-xl" size="lg" onClick={() => window.open(`tel:${phone}`)}>
-                  <Phone strokeWidth={1} className="w-4 h-4 mr-2" /> Call Now
+              <div className="flex flex-col gap-2 mt-6">
+                {phone && (
+                  <Button className="w-full rounded-xl" size="lg" onClick={() => window.open(`tel:${phone}`)}>
+                    <Phone strokeWidth={1} className="w-4 h-4 mr-2" /> Call Now
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full rounded-xl" size="lg" onClick={() => router.push(`/dashboard/chat?recipientId=${artisanProfile?._id}&recipientName=${encodeURIComponent(name)}`)}>
+                  <MessageCircle strokeWidth={1} className="w-4 h-4 mr-2" /> Message Artisan
                 </Button>
-              )}
+              </div>
             </div>
 
             <div id="hire-form" className="bg-card rounded-2xl p-6 shadow-sm border border-border">

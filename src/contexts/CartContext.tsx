@@ -13,11 +13,15 @@ export interface CartProduct {
   price: string;
   image: string;
   inStock?: boolean;
+  /** Available stock from the API — used to cap cart quantity */
+  availableStock?: number;
   badge?: string | null;
   unit?: string;
   supplier?: string;
   /** MongoDB _id for API products — used at checkout */
   _id?: string;
+  /** Supplier profile _id — used for shipping calculation */
+  supplierId?: string;
 }
 
 export interface CartItem {
@@ -58,14 +62,18 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const addToCart = (product: CartProduct, quantity = 1) => {
     setItems((prev) => {
+      const stock = product.availableStock;
       const existing = prev.find((i) => String(i.product.id) === String(product.id));
-      if (existing)
-        return prev.map((i) =>
-          String(i.product.id) === String(product.id)
-            ? { ...i, quantity: i.quantity + quantity }
-            : i,
-        );
-      return [...prev, { product, quantity }];
+      if (existing) {
+        return prev.map((i) => {
+          if (String(i.product.id) !== String(product.id)) return i;
+          const desired = i.quantity + quantity;
+          const capped = stock != null ? Math.min(desired, stock) : desired;
+          return { ...i, product: { ...i.product, availableStock: stock }, quantity: capped };
+        });
+      }
+      const capped = stock != null ? Math.min(quantity, stock) : quantity;
+      return [...prev, { product, quantity: capped }];
     });
   };
 
@@ -78,7 +86,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     setItems((prev) =>
-      prev.map((i) => (String(i.product.id) === String(productId) ? { ...i, quantity } : i)),
+      prev.map((i) => {
+        if (String(i.product.id) !== String(productId)) return i;
+        const stock = i.product.availableStock;
+        const capped = stock != null ? Math.min(quantity, stock) : quantity;
+        return { ...i, quantity: capped };
+      }),
     );
   };
 

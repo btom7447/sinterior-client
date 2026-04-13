@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
 import { Package, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { resolveAssetUrl } from "@/types/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -114,7 +115,20 @@ export default function DashboardInventory() {
             <tbody>
               {filtered.map((p) => (
                 <tr key={p._id} className="border-b border-border/50 last:border-0">
-                  <td className="py-3 px-2 font-medium text-foreground">{p.name}</td>
+                  <td className="py-3 px-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-secondary shrink-0 overflow-hidden">
+                        {p.images?.[0] ? (
+                          <img src={resolveAssetUrl(p.images[0])} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-4 h-4 text-muted-foreground" strokeWidth={1} />
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium text-foreground truncate">{p.name}</span>
+                    </div>
+                  </td>
                   <td className="py-3 px-2 text-muted-foreground hidden sm:table-cell">{p.category}</td>
                   <td className="py-3 px-2 text-right font-semibold text-foreground">{fmt(p.price)}</td>
                   <td className="py-3 px-2 text-center">

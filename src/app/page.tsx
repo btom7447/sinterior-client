@@ -21,10 +21,12 @@ const jsonLd = {
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/og-image.png`,
+        url: `${SITE_URL}/icon.png`,
+        width: 208,
+        height: 208,
       },
       description:
-        "Marketplace connecting clients with verified artisans, suppliers, and building materials across Nigeria.",
+        "Nigeria's trusted marketplace for hiring verified artisans (plumbers, electricians, carpenters, painters) and buying quality building materials from verified suppliers.",
       areaServed: {
         "@type": "Country",
         name: "Nigeria",
@@ -34,6 +36,11 @@ const jsonLd = {
         "https://www.facebook.com/sintherior",
         "https://www.instagram.com/sintherior",
       ],
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "customer service",
+        availableLanguage: ["English"],
+      },
     },
     {
       "@type": "WebSite",
@@ -41,16 +48,26 @@ const jsonLd = {
       url: SITE_URL,
       name: "Sintherior",
       description:
-        "Connect with verified construction professionals, premium suppliers, and everything you need to bring your building projects to life.",
+        "Hire verified artisans and buy quality building materials across Nigeria. Find plumbers, electricians, carpenters, and more near you.",
       publisher: { "@id": `${SITE_URL}/#organization` },
-      potentialAction: {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${SITE_URL}/artisan?q={search_term_string}`,
+      potentialAction: [
+        {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${SITE_URL}/artisan?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
         },
-        "query-input": "required name=search_term_string",
-      },
+        {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${SITE_URL}/products?search={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      ],
       inLanguage: "en-NG",
     },
   ],
