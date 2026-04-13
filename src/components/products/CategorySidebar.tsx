@@ -20,6 +20,7 @@ import {
   Paintbrush,
   Package,
 } from "lucide-react";
+import { PRODUCT_CATEGORY_TREE } from "@/lib/constants";
 
 export interface CategoryItem {
   name: string;
@@ -27,93 +28,37 @@ export interface CategoryItem {
   children?: string[];
 }
 
+/** Map category names to icons */
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  "Lightings & Electrical": Lightbulb,
+  "Panels": LayoutGrid,
+  "Wallpaper": Wallpaper,
+  "Doors": DoorOpen,
+  "Walls": Layers,
+  "Cement": Package,
+  "Steel & Iron": Hammer,
+  "Tiles & Flooring": LayoutGrid,
+  "Paints": Paintbrush,
+  "Roofing & Ceiling": Home,
+  "Smart Home": Cpu,
+  "Furniture": Sofa,
+  "Plumbing": WrenchIcon,
+  "Aggregates": Package,
+  "Wood & Timber": Hammer,
+  "Automobile": Car,
+  "Laundromat": WashingMachine,
+};
+
+/** Built from the shared PRODUCT_CATEGORY_TREE — single source of truth */
 const defaultCategories: CategoryItem[] = [
   { name: "For you", icon: Home },
   { name: "Featured", icon: Flame },
   { name: "Deals", icon: Zap },
-  {
-    name: "Lightings & Electrical",
-    icon: Lightbulb,
-    children: ["LED Lights", "Chandeliers", "Switches & Sockets", "Cables"],
-  },
-  {
-    name: "Panels",
-    icon: LayoutGrid,
-    children: ["Wall Panels", "Ceiling Panels", "Acoustic Panels"],
-  },
-  {
-    name: "Wallpaper",
-    icon: Wallpaper,
-    children: ["Vinyl", "Fabric", "Peel & Stick", "3D Wallpaper"],
-  },
-  {
-    name: "Doors",
-    icon: DoorOpen,
-    children: ["Wooden Doors", "Steel Doors", "Glass Doors", "PVC Doors"],
-  },
-  {
-    name: "Walls",
-    icon: Layers,
-    children: ["Paint", "Tiles", "Bricks", "Plaster"],
-  },
-  {
-    name: "Cement",
-    icon: Package,
-    children: ["Dangote", "BUA", "Lafarge"],
-  },
-  {
-    name: "Steel & Iron",
-    icon: Hammer,
-    children: ["Reinforcement Bars", "Roofing Sheets", "Nails & Bolts"],
-  },
-  {
-    name: "Tiles & Flooring",
-    icon: LayoutGrid,
-    children: ["Ceramic", "Porcelain", "Granite", "Marble", "Vinyl"],
-  },
-  {
-    name: "Paints",
-    icon: Paintbrush,
-    children: ["Emulsion", "Gloss", "Textured", "Primers"],
-  },
-  {
-    name: "Roofing & Ceiling",
-    icon: Home,
-    children: ["Long Span", "Step Tiles", "POP Ceiling", "PVC Ceiling"],
-  },
-  {
-    name: "Smart Home",
-    icon: Cpu,
-    children: ["Automation", "CCTV", "Smart Locks", "Sensors"],
-  },
-  {
-    name: "Furniture",
-    icon: Sofa,
-    children: ["Kitchen", "Bedroom", "Office", "Outdoor"],
-  },
-  {
-    name: "Plumbing",
-    icon: WrenchIcon,
-    children: ["Pipes", "Fittings", "Taps", "Water Heaters"],
-  },
-  {
-    name: "Aggregates",
-    icon: Package,
-    children: ["Sand", "Gravel", "Granite Chippings"],
-  },
-  {
-    name: "Wood & Timber",
-    icon: Hammer,
-    children: ["Planks", "Plywood", "MDF", "Hardwood"],
-  },
-  {
-    name: "Automobile",
-    icon: Car,
-  },
-  {
-    name: "Laundromat",
-    icon: WashingMachine,
-  },
+  ...PRODUCT_CATEGORY_TREE.map((cat) => ({
+    name: cat.name,
+    icon: CATEGORY_ICONS[cat.name] || Package,
+    children: cat.subcategories.length > 0 ? cat.subcategories : undefined,
+  })),
 ];
 
 interface CategorySidebarProps {
@@ -135,7 +80,7 @@ const CategorySidebar = ({ selected, onSelect }: CategorySidebarProps) => {
   };
 
   return (
-    <nav className="w-full min-w-[11rem] shrink-0 bg-card overflow-y-auto">
+    <nav className="w-full min-w-44 shrink-0 bg-card">
       <div className="py-2">
         <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Categories

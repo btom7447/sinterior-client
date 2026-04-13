@@ -16,6 +16,7 @@ import {
   User,
   LogOut,
   MessageCircle,
+  Truck,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useChat } from "@/hooks/useChat";
 import { toast } from "sonner";
 
 const menuItems = {
@@ -53,6 +55,8 @@ const menuItems = {
     { title: "Orders", url: "/dashboard/orders", icon: ShoppingBag },
     { title: "Earnings", url: "/dashboard/earnings", icon: BarChart3 },
     { title: "Inventory", url: "/dashboard/inventory", icon: FileText },
+    { title: "Logistics", url: "/dashboard/logistics", icon: Truck },
+    { title: "Business", url: "/dashboard/business", icon: Building2 },
     { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
@@ -75,6 +79,7 @@ export function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuth();
+  const { totalUnread } = useChat();
   const currentPath = pathname;
 
   const role = (profile?.role || "client") as keyof typeof menuItems;
@@ -128,7 +133,12 @@ export function DashboardSidebar() {
                         }`}
                       >
                         <item.icon className="w-5 h-5 flex-shrink-0" strokeWidth={1} />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && <span className="flex-1">{item.title}</span>}
+                        {!collapsed && item.title === "Chat" && totalUnread > 0 && (
+                          <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                            {totalUnread > 9 ? "9+" : totalUnread}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,17 @@ interface ArtisanDetailsFormProps {
 const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading = false }: ArtisanDetailsFormProps) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const watchRef = useRef<number | null>(null);
 
   const selectedCategory = ARTISAN_SKILL_CATEGORIES.find((cat) => cat.id === formData.skillCategory);
+
+  // Clean up watch on unmount
+  useEffect(() => {
+    return () => {
+      if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+    };
+  }, []);
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
@@ -39,10 +48,28 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
     }
     setIsGettingLocation(true);
     setLocationError(null);
-    navigator.geolocation.getCurrentPosition(
+
+    if (watchRef.current != null) {
+      navigator.geolocation.clearWatch(watchRef.current);
+    }
+
+    let settled = false;
+
+    watchRef.current = navigator.geolocation.watchPosition(
       (position) => {
-        setFormData({ ...formData, latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setIsGettingLocation(false);
+        const { latitude, longitude, accuracy: acc } = position.coords;
+        setFormData({ ...formData, latitude, longitude });
+        setAccuracy(acc);
+
+        // Stop once GPS locks on with < 100m accuracy
+        if (acc < 100 && !settled) {
+          settled = true;
+          if (watchRef.current != null) {
+            navigator.geolocation.clearWatch(watchRef.current);
+            watchRef.current = null;
+          }
+          setIsGettingLocation(false);
+        }
       },
       (error) => {
         setIsGettingLocation(false);
@@ -51,8 +78,17 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
         else if (error.code === error.TIMEOUT) setLocationError("Location request timed out");
         else setLocationError("An error occurred getting your location");
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+
+    // Safety: stop after 30s even if accuracy never reaches < 100m
+    setTimeout(() => {
+      if (watchRef.current != null) {
+        navigator.geolocation.clearWatch(watchRef.current);
+        watchRef.current = null;
+        setIsGettingLocation(false);
+      }
+    }, 30000);
   };
 
   return (
@@ -131,7 +167,13 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
           <div className="flex items-center gap-2 text-sm text-primary">
             <MapPin className="w-4 h-4" />
             <span>Location captured: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}</span>
+            {accuracy != null && (
+              <span className="text-xs text-muted-foreground">±{Math.round(accuracy)}m</span>
+            )}
           </div>
+        )}
+        {isGettingLocation && formData.latitude && (
+          <p className="text-xs text-muted-foreground">Refining accuracy — hold still for a moment…</p>
         )}
         {locationError && <p className="text-sm text-destructive">{locationError}</p>}
       </div>

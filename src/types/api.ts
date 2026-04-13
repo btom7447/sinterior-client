@@ -16,9 +16,11 @@ export interface ApiProduct {
   price: number;
   unit: string;
   images: string[];
+  quantity: number;
   inStock: boolean;
+  lowStockThreshold?: number;
   location?: string;
-  specs?: Record<string, string>;
+  specs?: Record<string, string | string[]>;
   rating: number;
   reviewCount: number;
   createdAt: string;

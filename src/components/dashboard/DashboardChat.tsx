@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat, useMessages, type Conversation, type SearchResult, type ChatMessage } from "@/hooks/useChat";
 import { resolveAssetUrl } from "@/types/api";
 import { apiUpload } from "@/lib/apiClient";
@@ -52,6 +53,7 @@ function ImagePreview({ url, onClose }: { url: string; onClose: () => void }) {
 }
 
 export default function DashboardChat() {
+  const searchParams = useSearchParams();
   const {
     conversations,
     loading: loadingConvos,
@@ -68,6 +70,35 @@ export default function DashboardChat() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const autoInitRef = useRef(false);
+
+  // Auto-open conversation when navigated with ?recipientId=...
+  useEffect(() => {
+    if (autoInitRef.current || loadingConvos) return;
+    const recipientId = searchParams.get("recipientId");
+    const recipientName = searchParams.get("recipientName");
+    if (!recipientId) return;
+
+    autoInitRef.current = true;
+
+    // Check if we already have a conversation with this person
+    const existing = conversations.find((c) => c.participant?.id === recipientId);
+    if (existing) {
+      setActiveConvo(existing);
+    } else {
+      // Create a temporary conversation entry so we can start messaging
+      setActiveConvo({
+        conversationId: "",
+        lastMessage: null,
+        unreadCount: 0,
+        participant: {
+          id: recipientId,
+          fullName: recipientName || "User",
+          avatarUrl: null,
+        },
+      });
+    }
+  }, [searchParams, conversations, loadingConvos]);
 
   const filteredConvos = searchQuery.trim()
     ? conversations.filter((c) =>

@@ -34,6 +34,8 @@ function getPageTitle(pathname: string) {
   if (pathname.includes("inventory")) return "Inventory";
   if (pathname.includes("appointments")) return "Appointments";
   if (pathname.includes("chat")) return "Chat";
+  if (pathname.includes("business")) return "Business Profile";
+  if (pathname.includes("logistics")) return "Logistics";
   return "Dashboard";
 }
 

@@ -75,9 +75,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const images = product.images.length > 0 ? product.images.map(resolveAssetUrl) : [getPrimaryImage([])];
   const supplier = product.supplierId;
   const totalCost = product.price * quantity;
-  const specs = product.specs ? Object.entries(product.specs) : [];
+  // Normalize specs: each value is always an array
+  const specs: [string, string[]][] = product.specs
+    ? Object.entries(product.specs).map(([k, v]) => [
+        k,
+        Array.isArray(v) ? v : typeof v === "string" ? v.split(",").map((s) => s.trim()).filter(Boolean) : [String(v)],
+      ])
+    : [];
+
+  const maxQty = product.quantity ?? Infinity;
 
   const handleAddToCart = () => {
+    if (!product.inStock || product.quantity === 0) {
+      toast.error("This product is out of stock");
+      return;
+    }
+    if (quantity > maxQty) {
+      toast.error(`Only ${maxQty} available in stock`);
+      setQuantity(maxQty);
+      return;
+    }
     addToCart(
       {
         id: product._id,
@@ -86,7 +103,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         price: formatNaira(product.price),
         image: getPrimaryImage(product.images),
         inStock: product.inStock,
+        availableStock: product.quantity,
         unit: product.unit,
+        supplierId: product.supplierId?._id,
       },
       quantity
     );
@@ -178,11 +197,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <Minus strokeWidth={1} className="w-4 h-4" />
                 </button>
                 <span className="text-sm font-semibold w-6 text-center">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={() => setQuantity(Math.min(quantity + 1, maxQty))} disabled={quantity >= maxQty} className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30">
                   <Plus strokeWidth={1} className="w-4 h-4" />
                 </button>
               </div>
             </div>
+
+            {product.inStock && product.quantity != null && product.quantity <= 10 && (
+              <p className="text-xs text-warning font-medium">Only {product.quantity} left in stock</p>
+            )}
 
             <div className="flex items-center gap-3">
               <Button variant="outline" size="icon" className="shrink-0 rounded-xl" onClick={() => router.push("/cart")}>
@@ -208,7 +231,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 rounded-xl gap-2 text-sm" onClick={() => router.push("/dashboard/chat")}>
+              <Button variant="outline" className="flex-1 rounded-xl gap-2 text-sm" onClick={() => router.push(`/dashboard/chat?recipientId=${supplier?._id}&recipientName=${encodeURIComponent(supplier?.fullName || "")}`)}>
                 <MessageCircle strokeWidth={1} className="w-4 h-4" /> Message Seller
               </Button>
             </div>
@@ -238,15 +261,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Specs tab */}
+        {/* Specs */}
         {specs.length > 0 && (
           <div className="mt-10">
             <h3 className="font-display text-lg font-bold text-foreground mb-4">Specifications</h3>
             <div className="grid sm:grid-cols-2 gap-x-12">
-              {specs.map(([key, value]) => (
-                <div key={key} className="flex justify-between py-3 border-b border-border">
-                  <span className="text-sm text-muted-foreground">{key}</span>
-                  <span className="text-sm font-medium text-foreground text-right">{value}</span>
+              {specs.map(([key, values]) => (
+                <div key={key} className="flex justify-between items-start py-3 border-b border-border gap-4">
+                  <span className="text-sm text-muted-foreground shrink-0">{key}</span>
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    {values.length === 1 ? (
+                      <span className="text-sm font-medium text-foreground">{values[0]}</span>
+                    ) : (
+                      values.map((v, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-secondary text-xs font-medium text-foreground">{v}</span>
+                      ))
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

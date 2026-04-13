@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Edit2, Save, LogOut } from "lucide-react";
+import { Camera, Edit2, Save, LogOut, Building2, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiPatch, apiUpload } from "@/lib/apiClient";
 import { toast } from "sonner";
 
@@ -195,6 +196,22 @@ const DashboardProfile = () => {
           </div>
         )}
       </div>
+
+      {/* Business Profile Link (suppliers only) */}
+      {profile?.role === "supplier" && (
+        <Link href="/dashboard/business" className="block">
+          <div className="card-elevated p-4 flex items-center gap-4 hover:bg-secondary/50 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-primary" strokeWidth={1} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Business Profile</p>
+              <p className="text-xs text-muted-foreground">Manage your business details, logo, and delivery info</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0" strokeWidth={1} />
+          </div>
+        </Link>
+      )}
 
       {/* Logout */}
       <button

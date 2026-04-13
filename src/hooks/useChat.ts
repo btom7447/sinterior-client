@@ -59,6 +59,10 @@ export const useChat = () => {
     setConversations((prev) =>
       prev.map((c) => (c.conversationId === conversationId ? { ...c, unreadCount: 0 } : c))
     );
+    // Broadcast to other useChat instances in the same tab (e.g. layout header badge)
+    window.dispatchEvent(
+      new CustomEvent("chat:mark-read", { detail: { conversationId } })
+    );
   }, []);
 
   const fetchConversations = useCallback(async () => {
@@ -124,6 +128,16 @@ export const useChat = () => {
       });
     };
 
+    // Listen for cross-instance read events (e.g. DashboardChat marking read)
+    const handleCrossRead = (e: Event) => {
+      if (!mounted) return;
+      const { conversationId } = (e as CustomEvent).detail;
+      setConversations((prev) =>
+        prev.map((c) => (c.conversationId === conversationId ? { ...c, unreadCount: 0 } : c))
+      );
+    };
+    window.addEventListener("chat:mark-read", handleCrossRead);
+
     const handleUserOnline = ({ profileId }: { profileId: string }) => {
       if (mounted) setOnlineUsers((prev) => new Set(prev).add(profileId));
     };
@@ -165,6 +179,7 @@ export const useChat = () => {
       s.off("user:online", handleUserOnline);
       s.off("user:offline", handleUserOffline);
       s.off("message:read", handleMessageRead);
+      window.removeEventListener("chat:mark-read", handleCrossRead);
       releaseSocket();
       socketRef.current = null;
     };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -291,6 +291,15 @@ function ServiceDetailsStep({
   const [skillInput, setSkillInput] = useState("");
   const [locLoading, setLocLoading] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
+  const [locAccuracy, setLocAccuracy] = useState<number | null>(null);
+  const watchRef = useRef<number | null>(null);
+
+  // Clean up watch on unmount
+  useEffect(() => {
+    return () => {
+      if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+    };
+  }, []);
 
   const captureLocation = () => {
     if (!navigator.geolocation) {
@@ -299,18 +308,45 @@ function ServiceDetailsStep({
     }
     setLocLoading(true);
     setLocError(null);
-    navigator.geolocation.getCurrentPosition(
+
+    if (watchRef.current != null) {
+      navigator.geolocation.clearWatch(watchRef.current);
+    }
+
+    let settled = false;
+
+    watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setLatitude(pos.coords.latitude);
-        setLongitude(pos.coords.longitude);
-        setLocLoading(false);
+        const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+        setLatitude(lat);
+        setLongitude(lng);
+        setLocAccuracy(acc);
+
+        // Stop once GPS locks on with < 100m accuracy
+        if (acc < 100 && !settled) {
+          settled = true;
+          if (watchRef.current != null) {
+            navigator.geolocation.clearWatch(watchRef.current);
+            watchRef.current = null;
+          }
+          setLocLoading(false);
+        }
       },
       () => {
         setLocError("Could not get your location. Please try again.");
         setLocLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+
+    // Safety: stop after 30s
+    setTimeout(() => {
+      if (watchRef.current != null) {
+        navigator.geolocation.clearWatch(watchRef.current);
+        watchRef.current = null;
+        setLocLoading(false);
+      }
+    }, 30000);
   };
 
   const addTool = (value: string) => {
@@ -340,11 +376,17 @@ function ServiceDetailsStep({
               {latitude && longitude ? (
                 <p className="text-xs text-success mt-0.5">
                   Captured — {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                  {locAccuracy != null && (
+                    <span className="text-muted-foreground ml-1">±{Math.round(locAccuracy)}m</span>
+                  )}
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Used to show your radius on the map for clients
                 </p>
+              )}
+              {locLoading && latitude && (
+                <p className="text-xs text-muted-foreground mt-0.5">Refining accuracy…</p>
               )}
               {locError && <p className="text-xs text-destructive mt-0.5">{locError}</p>}
             </div>

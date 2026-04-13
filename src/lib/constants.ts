@@ -2,27 +2,46 @@
  * Shared constants used across the app.
  */
 
-export const PRODUCT_CATEGORIES = [
-  "Lightings & Electrical",
-  "Panels",
-  "Wallpaper",
-  "Doors",
-  "Walls",
-  "Cement",
-  "Steel & Iron",
-  "Tiles & Flooring",
-  "Paints",
-  "Roofing & Ceiling",
-  "Smart Home",
-  "Furniture",
-  "Plumbing",
-  "Aggregates",
-  "Wood & Timber",
-  "Automobile",
-  "Laundromat",
-] as const;
+/* ─── Product category tree (SINGLE SOURCE OF TRUTH) ─────────────────────────
+ * Every category and its subcategories are defined here.
+ * CategorySidebar, DashboardProducts form, and search suggestions all derive
+ * from this tree. If you add/remove a category, update the server-side enum
+ * in server/src/models/Product.js to match.
+ * ────────────────────────────────────────────────────────────────────────── */
 
-export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+export interface ProductCategoryDef {
+  name: string;
+  subcategories: string[];
+}
+
+export const PRODUCT_CATEGORY_TREE: ProductCategoryDef[] = [
+  { name: "Lightings & Electrical", subcategories: ["LED Lights", "Chandeliers", "Switches & Sockets", "Cables"] },
+  { name: "Panels", subcategories: ["Wall Panels", "Ceiling Panels", "Acoustic Panels"] },
+  { name: "Wallpaper", subcategories: ["Vinyl", "Fabric", "Peel & Stick", "3D Wallpaper"] },
+  { name: "Doors", subcategories: ["Wooden Doors", "Steel Doors", "Glass Doors", "PVC Doors"] },
+  { name: "Walls", subcategories: ["Paint", "Tiles", "Bricks", "Plaster"] },
+  { name: "Cement", subcategories: ["Dangote", "BUA", "Lafarge"] },
+  { name: "Steel & Iron", subcategories: ["Reinforcement Bars", "Roofing Sheets", "Nails & Bolts"] },
+  { name: "Tiles & Flooring", subcategories: ["Ceramic", "Porcelain", "Granite", "Marble", "Vinyl"] },
+  { name: "Paints", subcategories: ["Emulsion", "Gloss", "Textured", "Primers"] },
+  { name: "Roofing & Ceiling", subcategories: ["Long Span", "Step Tiles", "POP Ceiling", "PVC Ceiling"] },
+  { name: "Smart Home", subcategories: ["Automation", "CCTV", "Smart Locks", "Sensors"] },
+  { name: "Furniture", subcategories: ["Kitchen", "Bedroom", "Office", "Outdoor"] },
+  { name: "Plumbing", subcategories: ["Pipes", "Fittings", "Taps", "Water Heaters"] },
+  { name: "Aggregates", subcategories: ["Sand", "Gravel", "Granite Chippings"] },
+  { name: "Wood & Timber", subcategories: ["Planks", "Plywood", "MDF", "Hardwood"] },
+  { name: "Automobile", subcategories: [] },
+  { name: "Laundromat", subcategories: [] },
+];
+
+/** Flat list of category names — for dropdowns, enum validation, etc. */
+export const PRODUCT_CATEGORIES = PRODUCT_CATEGORY_TREE.map((c) => c.name) as readonly string[];
+
+export type ProductCategory = (typeof PRODUCT_CATEGORY_TREE)[number]["name"];
+
+/** Get subcategories for a given category */
+export const getSubcategories = (category: string): string[] =>
+  PRODUCT_CATEGORY_TREE.find((c) => c.name === category)?.subcategories ?? [];
 
 /* ─── Artisan skill categories & skills (from Global Artisan Skills Masterlist) ── */
 
@@ -366,6 +385,29 @@ export const ARTISAN_SKILL_CATEGORIES: ArtisanSkillCategory[] = [
 
 /** Flat list of all artisan skill names */
 export const ALL_ARTISAN_SKILLS = ARTISAN_SKILL_CATEGORIES.flatMap((c) => c.skills);
+
+/* ─── Nigerian States (36 states + FCT) ─────────────────────────────────── */
+
+export const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+  "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
+  "Ekiti", "Enugu", "FCT Abuja", "Gombe", "Imo", "Jigawa",
+  "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara",
+  "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun",
+  "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
+] as const;
+
+export type NigerianState = (typeof NIGERIAN_STATES)[number];
+
+/* ─── Nigerian Geo-Political Zones ──────────────────────────────────────── */
+export const NIGERIAN_ZONES: { name: string; states: string[] }[] = [
+  { name: "South-West", states: ["Ekiti", "Lagos", "Ogun", "Ondo", "Osun", "Oyo"] },
+  { name: "South-East", states: ["Abia", "Anambra", "Ebonyi", "Enugu", "Imo"] },
+  { name: "South-South", states: ["Akwa Ibom", "Bayelsa", "Cross River", "Delta", "Edo", "Rivers"] },
+  { name: "North-Central", states: ["Benue", "FCT Abuja", "Kogi", "Kwara", "Nasarawa", "Niger", "Plateau"] },
+  { name: "North-West", states: ["Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Sokoto", "Zamfara"] },
+  { name: "North-East", states: ["Adamawa", "Bauchi", "Borno", "Gombe", "Taraba", "Yobe"] },
+];
 
 export const NAIRA = new Intl.NumberFormat("en-NG", {
   style: "currency",

@@ -24,6 +24,7 @@ export default function ProductCard({ product, animationDelay = 0 }: ProductCard
         image: getPrimaryImage(product.images),
         inStock: product.inStock,
         unit: product.unit,
+        supplierId: product.supplierId?._id,
       },
       1
     );
