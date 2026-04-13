@@ -25,6 +25,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   priceAtOrder: number;
+  selectedSpecs?: Record<string, string>;
 }
 
 interface Order {
@@ -322,6 +323,11 @@ export default function DashboardOrders() {
                     <div key={i} className="flex items-center justify-between bg-secondary/50 rounded-xl px-3 py-2">
                       <div>
                         <p className="text-sm font-medium text-foreground">{item.name}</p>
+                        {item.selectedSpecs && Object.keys(item.selectedSpecs).length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {Object.entries(item.selectedSpecs).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
                       <p className="text-sm font-semibold text-foreground">{formatCurrency(item.priceAtOrder * item.quantity)}</p>

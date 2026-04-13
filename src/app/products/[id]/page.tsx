@@ -25,7 +25,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [selectedImage, setSelectedImage] = useState(0);
   const [liked, setLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<"specs" | "reviews">("specs");
+
+  // Spec selections — keyed by spec name, value is the chosen option
+  const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -39,6 +41,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       }
     })();
   }, [id]);
+
+  // Auto-select single-value specs when product loads (must be before early returns)
+  useEffect(() => {
+    if (!product?.specs) return;
+    const initial: Record<string, string> = {};
+    for (const [key, v] of Object.entries(product.specs)) {
+      const values = Array.isArray(v)
+        ? v
+        : typeof v === "string"
+        ? v.split(",").map((s) => s.trim()).filter(Boolean)
+        : [String(v)];
+      if (values.length === 1) {
+        initial[key] = values[0];
+      }
+    }
+    setSelectedSpecs(initial);
+  }, [product?._id]);
 
   if (loading) {
     return (
@@ -75,13 +94,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const images = product.images.length > 0 ? product.images.map(resolveAssetUrl) : [getPrimaryImage([])];
   const supplier = product.supplierId;
   const totalCost = product.price * quantity;
+
   // Normalize specs: each value is always an array
-  const specs: [string, string[]][] = product.specs
+  const allSpecs: [string, string[]][] = product.specs
     ? Object.entries(product.specs).map(([k, v]) => [
         k,
         Array.isArray(v) ? v : typeof v === "string" ? v.split(",").map((s) => s.trim()).filter(Boolean) : [String(v)],
       ])
     : [];
+
+  // Split into selectable (multiple values — buyer must choose) vs info-only (single value)
+  const selectableSpecs = allSpecs.filter(([, values]) => values.length > 1);
+  const infoSpecs = allSpecs.filter(([, values]) => values.length === 1);
+
+  // Check if all required selections are made
+  const allSpecsSelected = selectableSpecs.every(([key]) => selectedSpecs[key]);
 
   const maxQty = product.quantity ?? Infinity;
 
@@ -90,11 +117,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       toast.error("This product is out of stock");
       return;
     }
+    if (selectableSpecs.length > 0 && !allSpecsSelected) {
+      toast.error("Please select all options before adding to cart");
+      return;
+    }
     if (quantity > maxQty) {
       toast.error(`Only ${maxQty} available in stock`);
       setQuantity(maxQty);
       return;
     }
+
+    // Build the final selected specs (only include keys with actual choices)
+    const specChoices: Record<string, string> = {};
+    for (const [key] of selectableSpecs) {
+      if (selectedSpecs[key]) specChoices[key] = selectedSpecs[key];
+    }
+
     addToCart(
       {
         id: product._id,
@@ -106,10 +144,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         availableStock: product.quantity,
         unit: product.unit,
         supplierId: product.supplierId?._id,
+        selectedSpecs: Object.keys(specChoices).length > 0 ? specChoices : undefined,
       },
       quantity
     );
-    toast.success(`${product.name} added to cart`, { description: `Quantity: ${quantity}` });
+
+    const specSummary = Object.values(specChoices).join(", ");
+    toast.success(`${product.name} added to cart`, {
+      description: `Qty: ${quantity}${specSummary ? ` · ${specSummary}` : ""}`,
+    });
   };
 
   return (
@@ -207,13 +250,58 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <p className="text-xs text-warning font-medium">Only {product.quantity} left in stock</p>
             )}
 
+            {/* ─── Spec Variant Selectors ─── */}
+            {selectableSpecs.length > 0 && (
+              <div className="space-y-4 py-1">
+                {selectableSpecs.map(([key, values]) => (
+                  <div key={key}>
+                    <p className="text-sm font-medium text-foreground mb-2">
+                      {key}
+                      {selectedSpecs[key] && (
+                        <span className="text-muted-foreground font-normal">: {selectedSpecs[key]}</span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {values.map((val) => {
+                        const isSelected = selectedSpecs[key] === val;
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() =>
+                              setSelectedSpecs((prev) => ({ ...prev, [key]: val }))
+                            }
+                            className={`px-3.5 py-1.5 rounded-lg text-sm border transition-all ${
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary font-semibold"
+                                : "border-border text-foreground hover:border-primary/50 hover:bg-secondary"
+                            }`}
+                          >
+                            {val}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <Button variant="outline" size="icon" className="shrink-0 rounded-xl" onClick={() => router.push("/cart")}>
                 <ShoppingCart strokeWidth={1} className="w-5 h-5" />
               </Button>
-              <Button className="flex-1 rounded-xl gap-2 font-semibold" disabled={!product.inStock} onClick={handleAddToCart}>
+              <Button
+                className="flex-1 rounded-xl gap-2 font-semibold"
+                disabled={!product.inStock || (selectableSpecs.length > 0 && !allSpecsSelected)}
+                onClick={handleAddToCart}
+              >
                 <ShoppingCart strokeWidth={1} className="w-4 h-4" />
-                {product.inStock ? `Add to Cart • ${formatNaira(totalCost)}` : "Out of Stock"}
+                {!product.inStock
+                  ? "Out of Stock"
+                  : selectableSpecs.length > 0 && !allSpecsSelected
+                  ? "Select Options"
+                  : `Add to Cart • ${formatNaira(totalCost)}`}
               </Button>
             </div>
 
@@ -261,23 +349,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Specs */}
-        {specs.length > 0 && (
+        {/* Info-only Specs (single value) */}
+        {infoSpecs.length > 0 && (
           <div className="mt-10">
             <h3 className="font-display text-lg font-bold text-foreground mb-4">Specifications</h3>
             <div className="grid sm:grid-cols-2 gap-x-12">
-              {specs.map(([key, values]) => (
+              {infoSpecs.map(([key, values]) => (
                 <div key={key} className="flex justify-between items-start py-3 border-b border-border gap-4">
                   <span className="text-sm text-muted-foreground shrink-0">{key}</span>
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    {values.length === 1 ? (
-                      <span className="text-sm font-medium text-foreground">{values[0]}</span>
-                    ) : (
-                      values.map((v, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-full bg-secondary text-xs font-medium text-foreground">{v}</span>
-                      ))
-                    )}
-                  </div>
+                  <span className="text-sm font-medium text-foreground text-right">{values[0]}</span>
                 </div>
               ))}
             </div>

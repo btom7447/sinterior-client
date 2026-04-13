@@ -65,6 +65,11 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{product.name}</p>
                     <p className="text-xs text-muted-foreground mb-1">{product.supplier}</p>
+                    {product.selectedSpecs && Object.keys(product.selectedSpecs).length > 0 && (
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {Object.entries(product.selectedSpecs).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{product.price}</span>
                       <span>×</span>

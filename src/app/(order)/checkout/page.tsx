@@ -127,6 +127,9 @@ export default function CheckoutPage() {
       const orderItems = items.map(({ product, quantity }) => ({
         productId: product._id || String(product.id),
         quantity,
+        ...(product.selectedSpecs && Object.keys(product.selectedSpecs).length > 0
+          ? { selectedSpecs: product.selectedSpecs }
+          : {}),
       }));
 
       // Re-validate stock before placing order
@@ -240,9 +243,16 @@ export default function CheckoutPage() {
             <h3 className="text-sm font-bold text-foreground">Order Summary</h3>
             <div className="space-y-2 bg-secondary/50 rounded-xl p-3">
               {items.map(({ product, quantity }) => (
-                <div key={String(product.id)} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground truncate flex-1">{product.name} × {quantity}</span>
-                  <span className="font-medium text-foreground ml-2">{product.price}</span>
+                <div key={String(product.id)} className="text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground truncate flex-1">{product.name} × {quantity}</span>
+                    <span className="font-medium text-foreground ml-2">{product.price}</span>
+                  </div>
+                  {product.selectedSpecs && Object.keys(product.selectedSpecs).length > 0 && (
+                    <p className="text-xs text-muted-foreground pl-1">
+                      {Object.entries(product.selectedSpecs).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                    </p>
+                  )}
                 </div>
               ))}
               <div className="border-t border-border pt-2 space-y-1">
