@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NIGERIAN_STATES } from "@/lib/constants";
 import {
   Star, MapPin, Phone, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
@@ -23,7 +24,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const { profile, isAuthenticated } = useAuth();
   const [artisan, setArtisan] = useState<ApiArtisan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hireForm, setHireForm] = useState({ title: "", description: "", budget: "", location: "" });
+  const [hireForm, setHireForm] = useState({ title: "", description: "", budget: "", state: "", city: "", appointmentDate: "" });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -54,10 +55,12 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
         title: hireForm.title,
         description: hireForm.description,
         budget: hireForm.budget ? Number(hireForm.budget) : undefined,
-        location: hireForm.location || undefined,
+        state: hireForm.state || undefined,
+        city: hireForm.city || undefined,
+        appointmentDate: hireForm.appointmentDate || undefined,
       });
       toast.success("Job request sent! The artisan will be notified.");
-      setHireForm({ title: "", description: "", budget: "", location: "" });
+      setHireForm({ title: "", description: "", budget: "", state: "", city: "", appointmentDate: "" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send job request.");
     } finally {
@@ -191,9 +194,20 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
               <h2 className="font-display text-xl md:text-2xl font-bold text-primary-foreground">Our experts will solve them in no time.</h2>
               <p className="text-primary-foreground/80 text-sm mt-1">Have any housing problems? Get professional help today.</p>
             </div>
-            <Button size="lg" variant="secondary" className="shrink-0 font-semibold rounded-xl" onClick={() => document.getElementById("hire-form")?.scrollIntoView({ behavior: "smooth" })}>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="shrink-0 font-semibold rounded-xl"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  router.push(`/login?next=${encodeURIComponent(`/artisan/${id}`)}`);
+                  return;
+                }
+                document.getElementById("hire-form")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
               <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
-              Hire This Artisan
+              {isAuthenticated ? "Hire This Artisan" : "Sign In to Hire"}
             </Button>
           </div>
         </div>
@@ -241,27 +255,74 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                     <Phone strokeWidth={1} className="w-4 h-4 mr-2" /> Call Now
                   </Button>
                 )}
-                <Button variant="outline" className="w-full rounded-xl" size="lg" onClick={() => router.push(`/dashboard/chat?recipientId=${artisanProfile?._id}&recipientName=${encodeURIComponent(name)}`)}>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-xl"
+                  size="lg"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      router.push(`/login?next=${encodeURIComponent(`/artisan/${id}`)}`);
+                      return;
+                    }
+                    router.push(`/dashboard/chat?recipientId=${artisanProfile?._id}&recipientName=${encodeURIComponent(name)}`);
+                  }}
+                >
                   <MessageCircle strokeWidth={1} className="w-4 h-4 mr-2" /> Message Artisan
                 </Button>
               </div>
             </div>
 
-            <div id="hire-form" className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+            <div id="hire-form" className="bg-card rounded-2xl p-6 shadow-sm border border-border relative">
               <h2 className="font-display text-xl font-bold text-foreground mb-2">Hire This Artisan</h2>
               <p className="text-sm text-muted-foreground mb-6">Describe the job you need done. The artisan will be notified and can accept your request.</p>
-              <form onSubmit={handleHireSubmit} className="space-y-4">
-                <Input placeholder="Job title (e.g. Kitchen renovation)" value={hireForm.title} onChange={(e) => setHireForm({ ...hireForm, title: e.target.value })} required className="rounded-xl" />
-                <Textarea placeholder="Describe the work you need done in detail..." value={hireForm.description} onChange={(e) => setHireForm({ ...hireForm, description: e.target.value })} rows={4} className="rounded-xl resize-none" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder="Budget (₦)" value={hireForm.budget} onChange={(e) => setHireForm({ ...hireForm, budget: e.target.value })} min="0" className="rounded-xl" />
-                  <Input placeholder="Location / Address" value={hireForm.location} onChange={(e) => setHireForm({ ...hireForm, location: e.target.value })} className="rounded-xl" />
+
+              {!isAuthenticated ? (
+                <div className="flex flex-col items-center gap-4 py-8 text-center">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Briefcase strokeWidth={1} className="w-7 h-7 text-primary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Sign in to send a hire request to this artisan</p>
+                  <Button className="rounded-xl" onClick={() => router.push(`/login?next=${encodeURIComponent(`/artisan/${id}`)}`)}>
+                    Sign In to Hire
+                  </Button>
                 </div>
-                <Button type="submit" disabled={submitting} className="w-full rounded-xl" size="lg">
-                  <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
-                  {submitting ? "Sending Request..." : "Send Hire Request"}
-                </Button>
-              </form>
+              ) : (
+                <form onSubmit={handleHireSubmit} className="space-y-4">
+                  <Input placeholder="Job title (e.g. Kitchen renovation)" value={hireForm.title} onChange={(e) => setHireForm({ ...hireForm, title: e.target.value })} required className="rounded-xl" />
+                  <Textarea placeholder="Describe the work you need done in detail..." value={hireForm.description} onChange={(e) => setHireForm({ ...hireForm, description: e.target.value })} rows={4} className="rounded-xl resize-none" />
+                  <Input type="number" placeholder="Budget (₦)" value={hireForm.budget} onChange={(e) => setHireForm({ ...hireForm, budget: e.target.value })} min="0" className="rounded-xl" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={hireForm.state}
+                      onChange={(e) => setHireForm({ ...hireForm, state: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">State</option>
+                      {NIGERIAN_STATES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <Input placeholder="City / LGA" value={hireForm.city} onChange={(e) => setHireForm({ ...hireForm, city: e.target.value })} className="rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">
+                      <Calendar strokeWidth={1} className="w-3.5 h-3.5 inline mr-1.5" />
+                      Preferred Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={hireForm.appointmentDate}
+                      onChange={(e) => setHireForm({ ...hireForm, appointmentDate: e.target.value })}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <Button type="submit" disabled={submitting} className="w-full rounded-xl" size="lg">
+                    <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
+                    {submitting ? "Sending Request..." : "Send Hire Request"}
+                  </Button>
+                </form>
+              )}
             </div>
           </div>
         </div>

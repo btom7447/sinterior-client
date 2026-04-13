@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import { useCart } from "@/contexts/CartContext";
-import { apiGet } from "@/lib/apiClient";
+import { apiGet, apiPost } from "@/lib/apiClient";
 import { type ApiProduct, formatNaira, getPrimaryImage, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         setProduct(null);
       } finally {
         setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  // Check if product is bookmarked
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const res = await apiGet<{ data: { saved: boolean } }>(`/bookmarks/check/${id}`);
+        setLiked(res.data.saved);
+      } catch {
+        // Not authenticated or error — leave as false
       }
     })();
   }, [id]);
@@ -168,7 +181,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <span className="text-sm">Back to Products</span>
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={() => setLiked(!liked)} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await apiPost<{ data: { saved: boolean } }>("/bookmarks/toggle", { entityId: id, type: "product" });
+                  setLiked(res.data.saved);
+                  toast(res.data.saved ? "Saved to favourites" : "Removed from favourites");
+                } catch {
+                  toast.error("Sign in to save products");
+                  router.push(`/login?next=${encodeURIComponent(`/products/${id}`)}`);
+                }
+              }}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
               <Heart strokeWidth={1} className={`w-5 h-5 ${liked ? "fill-destructive text-destructive" : "text-muted-foreground"}`} />
             </button>
             <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
