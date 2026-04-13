@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, MapPin, Star, MessageCircle, Phone, Verified,
+  ArrowLeft, MapPin, Star, MessageCircle, Verified,
   Package, Truck, Shield, Building2, Clock, Calendar,
   ChevronRight, ShoppingCart, Tag,
 } from "lucide-react";
@@ -277,27 +277,13 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
             )}
           </div>
 
-          {/* CTA Buttons */}
-          <div className="flex gap-3">
-            {(business?.whatsappNumber || profile.phone) && (
-              <Button
-                className="flex-1 rounded-xl gap-2 bg-green-500 hover:bg-green-600 text-white"
-                onClick={() => {
-                  const num = (business?.whatsappNumber || profile.phone || "").replace(/\D/g, "");
-                  window.open(`https://wa.me/${num}`, "_blank");
-                }}
-              >
-                <Phone strokeWidth={1} className="w-4 h-4" /> WhatsApp
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="flex-1 rounded-xl gap-2"
-              onClick={() => router.push(`/dashboard/chat?recipientId=${profile._id}&recipientName=${encodeURIComponent(profile.fullName)}`)}
-            >
-              <MessageCircle strokeWidth={1} className="w-4 h-4" /> Message
-            </Button>
-          </div>
+          {/* CTA */}
+          <Button
+            className="w-full rounded-xl gap-2"
+            onClick={() => router.push(`/dashboard/chat?recipientId=${profile._id}&recipientName=${encodeURIComponent(profile.fullName)}`)}
+          >
+            <MessageCircle strokeWidth={1} className="w-4 h-4" /> Message Seller
+          </Button>
 
           {/* Tabs */}
           <div className="flex border-b border-border">
