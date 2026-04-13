@@ -391,14 +391,15 @@ export default function DashboardProducts() {
       {/* Create / Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
               <h3 className="font-display font-bold text-foreground">{editingId ? "Edit Product" : "New Product"}</h3>
               <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-secondary">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Images */}
               <div>
                 <label className="text-sm font-medium text-foreground">Product Images</label>
@@ -550,6 +551,8 @@ export default function DashboardProducts() {
                 </div>
               </div>
 
+            </div>
+            <div className="shrink-0 p-4 border-t border-border">
               <button
                 type="submit"
                 disabled={submitting || uploading}
@@ -557,6 +560,7 @@ export default function DashboardProducts() {
               >
                 {submitting ? "Saving..." : editingId ? "Update Product" : "Create Product"}
               </button>
+            </div>
             </form>
           </div>
         </div>

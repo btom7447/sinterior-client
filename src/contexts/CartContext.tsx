@@ -22,6 +22,8 @@ export interface CartProduct {
   _id?: string;
   /** Supplier profile _id — used for shipping calculation */
   supplierId?: string;
+  /** Buyer's chosen spec values, e.g. { Color: "Red", Size: "Large" } */
+  selectedSpecs?: Record<string, string>;
 }
 
 export interface CartItem {
