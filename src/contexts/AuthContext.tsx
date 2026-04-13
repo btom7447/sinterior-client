@@ -24,7 +24,7 @@ interface ApiProfile {
 interface ApiUser {
   id: string;
   email: string;
-  role: "artisan" | "supplier" | "client";
+  role: "artisan" | "supplier" | "client" | "admin";
   isEmailVerified: boolean;
   profile: ApiProfile | null;
 }
@@ -36,7 +36,7 @@ export interface Profile {
   full_name: string;
   email: string | null;
   phone: string | null;
-  role: "artisan" | "supplier" | "client";
+  role: "artisan" | "supplier" | "client" | "admin";
   avatar_url: string | null;
   bio: string | null;
   city: string;
