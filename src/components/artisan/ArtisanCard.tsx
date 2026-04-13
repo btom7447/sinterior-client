@@ -51,10 +51,12 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 text-muted-foreground text-sm mb-2">
-            <MapPin className="w-3.5 h-3.5" strokeWidth={1} />
-            {artisan.city}, {artisan.state}
-          </div>
+          {(artisan.city || artisan.state) && (
+            <div className="flex items-center gap-1 text-muted-foreground text-sm mb-2">
+              <MapPin className="w-3.5 h-3.5" strokeWidth={1} />
+              {[artisan.city, artisan.state].filter(Boolean).join(", ")}
+            </div>
+          )}
 
           <p className="text-muted-foreground text-sm mb-4">
             {artisan.reviewCount || 0} reviews

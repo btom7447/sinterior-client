@@ -15,6 +15,7 @@ import {
   X,
   MessageCircle,
   Star,
+  AlertTriangle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -89,6 +90,11 @@ export default function DashboardOrders() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  // Dispute state
+  const [showDispute, setShowDispute] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
@@ -285,7 +291,7 @@ export default function DashboardOrders() {
       )}
 
       {/* Order Detail Modal */}
-      {selectedOrder && !showReviewModal && (
+      {selectedOrder && !showReviewModal && !showDispute && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedOrder(null)}>
           <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border">
@@ -431,6 +437,85 @@ export default function DashboardOrders() {
                     </div>
                   </div>
                 )}
+
+                {/* Dispute button */}
+                {selectedOrder.status !== "pending" && selectedOrder.status !== "cancelled" && (
+                  <button
+                    onClick={() => {
+                      setDisputeReason("");
+                      setShowDispute(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4" strokeWidth={1} />
+                    Raise a Dispute
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispute Modal */}
+      {showDispute && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDispute(false)}>
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-display font-bold text-foreground flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-destructive" strokeWidth={1} />
+                Raise a Dispute
+              </h3>
+              <button onClick={() => setShowDispute(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Our team will review this dispute and reach out to both parties within 48 hours.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Describe the issue</label>
+                <textarea
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  maxLength={2000}
+                  rows={5}
+                  placeholder="What happened? Include dates, amounts, and any relevant context."
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{disputeReason.length}/2000</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDispute(false)}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-secondary hover:bg-secondary/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={disputeSubmitting || !disputeReason.trim()}
+                  onClick={async () => {
+                    if (!disputeReason.trim()) return;
+                    setDisputeSubmitting(true);
+                    try {
+                      await apiPost("/disputes", {
+                        type: "order",
+                        orderId: selectedOrder._id,
+                        reason: disputeReason.trim(),
+                      });
+                      toast.success("Dispute submitted. Our team will review it.");
+                      setShowDispute(false);
+                      setDisputeReason("");
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : "Failed to submit dispute";
+                      toast.error(msg);
+                    } finally {
+                      setDisputeSubmitting(false);
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                >
+                  {disputeSubmitting ? "Submitting..." : "Submit Dispute"}
+                </button>
               </div>
             </div>
           </div>

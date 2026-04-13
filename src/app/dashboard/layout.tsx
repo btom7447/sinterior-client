@@ -112,7 +112,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!loading && !isAuthenticated) {
       router.push(`/login?next=${encodeURIComponent(pathname)}`);
     }
-  }, [loading, isAuthenticated, router, pathname]);
+    if (!loading && isAuthenticated && user?.role === "admin") {
+      router.push("/admin");
+    }
+  }, [loading, isAuthenticated, user, router, pathname]);
 
   if (loading) {
     return (

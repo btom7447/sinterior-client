@@ -97,7 +97,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const avatar = resolveAssetUrl(artisanProfile?.avatarUrl || "") || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
   const bio = artisanProfile?.bio;
   const phone = artisanProfile?.phone;
-  const location = artisan.address || `${artisan.city}, ${artisan.state}`;
+  const location = artisan.address || [artisan.city, artisan.state].filter(Boolean).join(", ");
   const workHours = artisan.workHoursStart && artisan.workHoursEnd
     ? `${artisan.workHoursStart} – ${artisan.workHoursEnd}`
     : "Contact for hours";
@@ -142,10 +142,12 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                   <div>
                     <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">{name}</h1>
                     <p className="text-primary font-semibold text-lg mt-1">{artisan.skill}</p>
-                    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-                      <MapPin strokeWidth={1} className="w-4 h-4" />
-                      <span className="text-sm">{location}</span>
-                    </div>
+                    {location && (
+                      <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+                        <MapPin strokeWidth={1} className="w-4 h-4" />
+                        <span className="text-sm">{location}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-start md:items-end gap-2">
                     <div className="flex items-center gap-1.5 bg-secondary px-3 py-1.5 rounded-xl">
@@ -234,7 +236,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
               <h2 className="font-display text-xl font-bold text-foreground mb-6">Contact Info</h2>
               <div className="space-y-5">
                 {[
-                  { icon: MapPin, label: "Address", value: location },
+                  ...(location ? [{ icon: MapPin, label: "Address", value: location }] : []),
                   { icon: Phone, label: "Phone", value: phone || "Not provided" },
                   { icon: Clock, label: "Working Hours", value: workHours },
                 ].map((item, i) => (
@@ -399,7 +401,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
               {artisan.serviceRadiusKm && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <MapPin strokeWidth={1} className="w-4 h-4 text-primary" />
-                  Serves within <span className="font-semibold text-foreground mx-1">{artisan.serviceRadiusKm} km</span> of {artisan.city}
+                  Serves within <span className="font-semibold text-foreground mx-1">{artisan.serviceRadiusKm} km</span>{artisan.city ? ` of ${artisan.city}` : ""}
                 </div>
               )}
               {artisan.tools && artisan.tools.length > 0 && (

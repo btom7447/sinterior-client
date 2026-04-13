@@ -17,6 +17,7 @@ import {
   LogOut,
   MessageCircle,
   Truck,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -46,6 +47,7 @@ const menuItems = {
     { title: "Earnings", url: "/dashboard/earnings", icon: BarChart3 },
     { title: "Reviews", url: "/dashboard/reviews", icon: Users },
     { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
+    { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ],
@@ -58,6 +60,7 @@ const menuItems = {
     { title: "Logistics", url: "/dashboard/logistics", icon: Truck },
     { title: "Business", url: "/dashboard/business", icon: Building2 },
     { title: "Chat", url: "/dashboard/chat", icon: MessageCircle },
+    { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
     { title: "Profile", url: "/dashboard/profile", icon: User },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ],
@@ -83,7 +86,7 @@ export function DashboardSidebar() {
   const currentPath = pathname;
 
   const role = (profile?.role || "client") as keyof typeof menuItems;
-  const items = menuItems[role];
+  const items = menuItems[role] || menuItems.client;
 
   const handleSignOut = async () => {
     try {
