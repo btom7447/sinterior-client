@@ -87,9 +87,23 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
         navigator.geolocation.clearWatch(watchRef.current);
         watchRef.current = null;
         setIsGettingLocation(false);
+        // If accuracy is still very poor, warn the user
+        if (!settled) {
+          setLocationError(
+            "Location accuracy is low. Try again outdoors or allow precise location in your browser settings."
+          );
+        }
       }
     }, 30000);
   };
+
+  // Format accuracy for display
+  const formatAccuracy = (acc: number) => {
+    if (acc >= 1000) return `±${(acc / 1000).toFixed(1)}km`;
+    return `±${Math.round(acc)}m`;
+  };
+
+  const accuracyIsGood = accuracy != null && accuracy < 5000;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -164,13 +178,20 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
           </Button>
         </div>
         {formData.latitude && formData.longitude && (
-          <div className="flex items-center gap-2 text-sm text-primary">
+          <div className={`flex items-center gap-2 text-sm ${accuracyIsGood ? "text-primary" : "text-warning"}`}>
             <MapPin className="w-4 h-4" />
             <span>Location captured: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}</span>
             {accuracy != null && (
-              <span className="text-xs text-muted-foreground">±{Math.round(accuracy)}m</span>
+              <span className={`text-xs ${accuracyIsGood ? "text-muted-foreground" : "text-warning font-medium"}`}>
+                {formatAccuracy(accuracy)}
+              </span>
             )}
           </div>
+        )}
+        {formData.latitude && !accuracyIsGood && !isGettingLocation && (
+          <p className="text-xs text-warning">
+            Accuracy is too low. Please try again outdoors or enable precise location in your browser/device settings.
+          </p>
         )}
         {isGettingLocation && formData.latitude && (
           <p className="text-xs text-muted-foreground">Refining accuracy — hold still for a moment…</p>
@@ -180,13 +201,16 @@ const ArtisanDetailsForm = ({ formData, setFormData, onSubmit, onBack, isLoading
 
       <div className="flex gap-3 pt-2">
         <Button type="button" variant="outline" onClick={onBack} className="flex-1 py-6 rounded-xl" disabled={isLoading}>Back</Button>
-        <Button type="submit" className="flex-1 py-6 rounded-xl" disabled={isLoading || !formData.latitude}>
+        <Button type="submit" className="flex-1 py-6 rounded-xl" disabled={isLoading || !formData.latitude || !accuracyIsGood}>
           {isLoading ? "Creating account..." : "Complete Registration"}
         </Button>
       </div>
 
       {!formData.latitude && (
         <p className="text-center text-sm text-muted-foreground">Please share your location to complete registration</p>
+      )}
+      {formData.latitude && !accuracyIsGood && (
+        <p className="text-center text-sm text-warning">Location accuracy is too low — please update your location</p>
       )}
     </form>
   );

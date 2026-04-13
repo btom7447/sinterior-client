@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
-import { formatNaira } from "@/lib/constants";
+import { formatNaira, NIGERIAN_STATES } from "@/lib/constants";
 import { resolveAssetUrl } from "@/types/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +18,9 @@ import {
   X,
   MessageCircle,
   Star,
+  Calendar,
+  CalendarClock,
+  MapPin,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +41,9 @@ interface Job {
   description: string;
   budget?: number;
   location?: string;
+  state?: string;
+  city?: string;
+  appointmentDate?: string;
   status: "pending" | "accepted" | "in_progress" | "completed" | "cancelled";
   paymentStatus?: "pending" | "paid" | "failed";
   startDate?: string;
@@ -55,14 +61,12 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelled", icon: XCircle, color: "bg-destructive/10 text-destructive" },
 };
 
-// Artisan transitions
 const ARTISAN_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "cancelled"],
   accepted: ["in_progress", "cancelled"],
   in_progress: ["completed", "cancelled"],
 };
 
-// Client can only cancel
 const CLIENT_TRANSITIONS: Record<string, string[]> = {
   pending: ["cancelled"],
   accepted: ["cancelled"],
@@ -85,6 +89,12 @@ export default function DashboardJobs() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
 
+  // Reschedule state
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+
   const fetchJobs = useCallback(async (page = 1) => {
     setLoading(true);
     try {
@@ -102,8 +112,11 @@ export default function DashboardJobs() {
   const updateStatus = async (id: string, status: string) => {
     setStatusUpdating(true);
     try {
-      await apiPatch(`/jobs/${id}/status`, { status });
+      const res = await apiPatch<{ data: { job: Job } }>(`/jobs/${id}/status`, { status });
       toast.success(`Job ${status.replace("_", " ")}`);
+      if (status === "accepted" && res.data?.job?.appointmentDate) {
+        toast.success("Appointment scheduled automatically", { description: `Date: ${fmtDate(res.data.job.appointmentDate)}` });
+      }
       fetchJobs(pagination.page);
       if (selected?._id === id) setSelected((p) => p ? { ...p, status: status as Job["status"] } : null);
     } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
@@ -153,6 +166,39 @@ export default function DashboardJobs() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to initialize payment");
       setPayLoading(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!selected) return;
+    if (!rescheduleDate || !rescheduleReason.trim()) {
+      toast.error("Please provide a new date and reason");
+      return;
+    }
+    setRescheduleSubmitting(true);
+    try {
+      // Find the appointment linked to this job, then reschedule it
+      const aptsRes = await apiGet<{ data: { appointments: { _id: string; jobId?: string }[] } }>("/appointments?limit=100");
+      const linked = aptsRes.data?.appointments?.find((a) => a.jobId === selected._id);
+      if (!linked) {
+        toast.error("No appointment found for this job");
+        setRescheduleSubmitting(false);
+        return;
+      }
+      await apiPatch(`/appointments/${linked._id}/reschedule`, {
+        date: rescheduleDate,
+        reason: rescheduleReason,
+      });
+      toast.success("Appointment rescheduled");
+      setShowReschedule(false);
+      setRescheduleDate("");
+      setRescheduleReason("");
+      // Update the job's appointmentDate locally
+      setSelected((p) => p ? { ...p, appointmentDate: rescheduleDate } : null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reschedule");
+    } finally {
+      setRescheduleSubmitting(false);
     }
   };
 
@@ -218,6 +264,15 @@ export default function DashboardJobs() {
                       <AvatarFallback className="text-[8px]">{otherParty?.fullName?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <span className="text-xs text-muted-foreground truncate">{otherParty?.fullName}</span>
+                    {job.appointmentDate && (
+                      <>
+                        <span className="text-xs text-muted-foreground">&middot;</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <Calendar className="w-3 h-3" strokeWidth={1} />
+                          {fmtDate(job.appointmentDate)}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
@@ -239,19 +294,50 @@ export default function DashboardJobs() {
       )}
 
       {/* Job Detail Modal */}
-      {selected && !showReviewModal && (
+      {selected && !showReviewModal && !showReschedule && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null)}>
-          <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
               <h3 className="font-display font-bold text-foreground">Job Details</h3>
               <button onClick={() => setSelected(null)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <h4 className="font-semibold text-foreground">{selected.title}</h4>
               {selected.description && <p className="text-sm text-muted-foreground">{selected.description}</p>}
+
+              {/* Appointment date badge */}
+              {selected.appointmentDate && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <Calendar strokeWidth={1} className="w-4 h-4 text-primary shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Appointment Date</p>
+                    <p className="text-sm font-semibold text-foreground">{fmtDate(selected.appointmentDate)}</p>
+                  </div>
+                  {["accepted", "in_progress"].includes(selected.status) && (
+                    <button
+                      onClick={() => {
+                        setRescheduleDate("");
+                        setRescheduleReason("");
+                        setShowReschedule(true);
+                      }}
+                      className="text-xs text-primary font-medium hover:underline shrink-0"
+                    >
+                      Reschedule
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2 text-sm">
                 {selected.budget != null && <div className="flex justify-between"><span className="text-muted-foreground">Budget</span><span className="font-semibold">{fmt(selected.budget)}</span></div>}
-                {selected.location && <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{selected.location}</span></div>}
+                {(selected.state || selected.city || selected.location) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Location</span>
+                    <span className="text-right">
+                      {[selected.city, selected.state].filter(Boolean).join(", ") || selected.location}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status].color}`}>{STATUS_CONFIG[selected.status].label}</span></div>
                 {selected.budget != null && (
                   <div className="flex justify-between">
@@ -270,7 +356,6 @@ export default function DashboardJobs() {
 
               {/* Action Buttons */}
               <div className="border-t border-border pt-3 space-y-3">
-                {/* Message */}
                 <button
                   onClick={() => {
                     const otherId = isArtisan ? selected.clientId?._id : selected.artisanId?._id;
@@ -282,7 +367,6 @@ export default function DashboardJobs() {
                   {isArtisan ? "Message Client" : "Message Artisan"}
                 </button>
 
-                {/* Pay button (client only, unpaid jobs with budget) */}
                 {!isArtisan && selected.budget != null && selected.budget > 0 && selected.paymentStatus !== "paid" && selected.status !== "cancelled" && selected.status !== "pending" && (
                   <button
                     onClick={() => handlePay(selected._id)}
@@ -294,7 +378,6 @@ export default function DashboardJobs() {
                   </button>
                 )}
 
-                {/* Review button (client only, completed jobs) */}
                 {!isArtisan && selected.status === "completed" && (
                   <button
                     onClick={() => setShowReviewModal(true)}
@@ -305,7 +388,6 @@ export default function DashboardJobs() {
                   </button>
                 )}
 
-                {/* Status transitions */}
                 {transitions[selected.status] && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-2">Update Status</p>
@@ -319,6 +401,54 @@ export default function DashboardJobs() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {showReschedule && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowReschedule(false)}>
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-display font-bold text-foreground flex items-center gap-2">
+                <CalendarClock className="w-5 h-5 text-primary" strokeWidth={1} />
+                Reschedule Appointment
+              </h3>
+              <button onClick={() => setShowReschedule(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Current date: <span className="font-medium text-foreground">{selected.appointmentDate ? fmtDate(selected.appointmentDate) : "Not set"}</span>
+              </p>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">New Date</label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">Reason for rescheduling *</label>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  placeholder="e.g. Materials won't arrive until next week..."
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                />
+              </div>
+              <button
+                onClick={handleReschedule}
+                disabled={rescheduleSubmitting || !rescheduleDate || !rescheduleReason.trim()}
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {rescheduleSubmitting ? "Rescheduling..." : "Confirm Reschedule"}
+              </button>
             </div>
           </div>
         </div>
