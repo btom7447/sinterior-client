@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NairaInput } from "@/components/ui/NairaInput";
 import LocationPicker from "@/components/location/LocationPicker";
 import { Award, Camera, MapPin, Save, Upload, Wrench, X } from "lucide-react";
+import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
 interface Portfolio {
@@ -167,36 +168,71 @@ function OverviewTab({
   onSave: (body: Partial<ArtisanProfile>) => Promise<void>;
   saving: boolean;
 }) {
+  // Categories are matched by `name` (legacy free-text from before the cascade
+  // was wired up). Find by name OR id so older profiles still resolve.
+  const initialCategoryName =
+    ARTISAN_SKILL_CATEGORIES.find(
+      (c) => c.name === data.skillCategory || c.id === data.skillCategory
+    )?.name ?? data.skillCategory ?? "";
+
+  const [skillCategory, setSkillCategory] = useState(initialCategoryName);
   const [skill, setSkill] = useState(data.skill || "");
-  const [skillCategory, setSkillCategory] = useState(data.skillCategory || "");
   const [pricePerDay, setPricePerDay] = useState<number | null>(data.pricePerDay ?? null);
   const [experienceYears, setExperienceYears] = useState(data.experienceYears ?? 0);
   const [isAvailable, setIsAvailable] = useState(data.isAvailable !== false);
+
+  const selectedCategory = ARTISAN_SKILL_CATEGORIES.find((c) => c.name === skillCategory);
+  const skillsForCategory = selectedCategory?.skills || [];
+
+  // If the persisted skill isn't in the chosen category, surface it as a "(custom)" option
+  // so we don't silently drop it on save.
+  const skillOptions =
+    skill && !skillsForCategory.includes(skill)
+      ? [...skillsForCategory, skill]
+      : skillsForCategory;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Primary skill
+            Category
           </Label>
-          <Input
-            value={skill}
-            onChange={(e) => setSkill(e.target.value)}
-            placeholder="e.g. Electrician"
-            className="mt-1.5"
-          />
+          <select
+            value={skillCategory}
+            onChange={(e) => {
+              setSkillCategory(e.target.value);
+              setSkill(""); // reset skill when category changes
+            }}
+            className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="">Select category</option>
+            {ARTISAN_SKILL_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Category
+            Primary skill
           </Label>
-          <Input
-            value={skillCategory}
-            onChange={(e) => setSkillCategory(e.target.value)}
-            placeholder="e.g. Electrical"
-            className="mt-1.5"
-          />
+          <select
+            value={skill}
+            onChange={(e) => setSkill(e.target.value)}
+            disabled={!skillCategory}
+            className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+          >
+            <option value="">
+              {skillCategory ? "Select skill" : "Select a category first"}
+            </option>
+            {skillOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">

@@ -10,6 +10,8 @@ interface UseArtisanSearchOptions {
   longitude: number | null;
   radiusKm?: number;
   category?: string | null;
+  /** Optional sub-skill filter (one of the skills under the chosen category). */
+  skill?: string | null;
   search?: string;
   limit?: number;
   enabled?: boolean;
@@ -20,16 +22,18 @@ export const useArtisanSearch = ({
   longitude,
   radiusKm = 50,
   category = null,
+  skill = null,
   search,
   limit = 20,
   enabled = true,
 }: UseArtisanSearchOptions) => {
   return useQuery({
-    queryKey: ["artisans", latitude, longitude, radiusKm, category, search, limit],
+    queryKey: ["artisans", latitude, longitude, radiusKm, category, skill, search, limit],
     queryFn: async (): Promise<ApiArtisan[]> => {
       const params = new URLSearchParams();
       params.set("limit", String(limit));
       if (category) params.set("category", category);
+      if (skill) params.set("skill", skill);
       if (search) params.set("search", search);
 
       // Use geo endpoint if coordinates available

@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Star,
   AlertTriangle,
+  CreditCard,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { JobActionModal } from "@/components/dashboard/JobActionModal";
@@ -48,6 +49,9 @@ interface Order {
   paymentStatus: "pending" | "paid" | "failed";
   cancellationReason?: string;
   cancelledBy?: "buyer" | "supplier";
+  buyerDeliveryApproved?: boolean;
+  supplierDeliveryApproved?: boolean;
+  deliveredAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -107,6 +111,31 @@ export default function DashboardOrders() {
     | "deliver"
     | "cancel"
   >(null);
+
+  // Approve-delivery action (separate POST endpoint, not the PATCH /status path).
+  // For COD orders the supplier must confirm cash was collected.
+  const handleApproveDelivery = async (
+    orderId: string,
+    cashCollected = false
+  ) => {
+    setStatusUpdating(true);
+    try {
+      const res = await apiPost<{ data: { order: Order }; message?: string }>(
+        `/orders/${orderId}/approve-delivery`,
+        { cashCollected }
+      );
+      toast.success(res.message || "Approved");
+      fetchOrders(pagination.page);
+      if (selectedOrder?._id === orderId && res.data?.order) {
+        setSelectedOrder(res.data.order);
+      }
+      setActionModal(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
@@ -484,17 +513,89 @@ export default function DashboardOrders() {
                   </button>
                 )}
 
-                {/* Supplier — Mark a shipped order delivered */}
-                {isSupplier && selectedOrder.status === "shipped" && (
-                  <button
-                    onClick={() => setActionModal("deliver")}
-                    disabled={statusUpdating}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 transition-colors"
-                  >
-                    <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
-                    Mark as delivered
-                  </button>
-                )}
+                {/* Delivery — dual-approval panel for shipped orders.
+                    Both parties confirm; payment must be settled before transition. */}
+                {selectedOrder.status === "shipped" && (() => {
+                  const myApproved = isSupplier
+                    ? selectedOrder.supplierDeliveryApproved
+                    : selectedOrder.buyerDeliveryApproved;
+                  const otherApproved = isSupplier
+                    ? selectedOrder.buyerDeliveryApproved
+                    : selectedOrder.supplierDeliveryApproved;
+                  const otherLabel = isSupplier ? "buyer" : "supplier";
+                  const isPaid = selectedOrder.paymentStatus === "paid";
+
+                  if (myApproved && !otherApproved) {
+                    return (
+                      <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-success shrink-0" />
+                        <p className="text-sm text-foreground">
+                          Waiting for the {otherLabel} to confirm delivery.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2 p-3 rounded-xl border border-success/20 bg-success/5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">Confirm delivery</span>
+                        <span className="text-muted-foreground">Both parties must confirm</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {isSupplier
+                          ? "Confirm the order was handed off to the buyer."
+                          : "Confirm you've received the items and they match what you ordered."}
+                      </p>
+                      {!isPaid && isSupplier && (
+                        <div className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded-lg bg-warning/10 text-warning">
+                          <CreditCard className="w-3 h-3" />
+                          Pay-on-delivery — you&apos;ll confirm cash collection on the next step.
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div
+                          className={`flex items-center gap-1.5 ${
+                            selectedOrder.buyerDeliveryApproved
+                              ? "text-success"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {selectedOrder.buyerDeliveryApproved ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Clock className="w-3.5 h-3.5" />
+                          )}
+                          Buyer{" "}
+                          {selectedOrder.buyerDeliveryApproved ? "confirmed" : "pending"}
+                        </div>
+                        <div
+                          className={`flex items-center gap-1.5 ${
+                            selectedOrder.supplierDeliveryApproved
+                              ? "text-success"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {selectedOrder.supplierDeliveryApproved ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Clock className="w-3.5 h-3.5" />
+                          )}
+                          Supplier{" "}
+                          {selectedOrder.supplierDeliveryApproved ? "confirmed" : "pending"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActionModal("deliver")}
+                        disabled={statusUpdating}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 transition-colors"
+                      >
+                        <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
+                        {isSupplier ? "Confirm delivery" : "Confirm receipt"}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {/* Cancel — buyers can cancel pending/confirmed; suppliers can cancel pending/confirmed too */}
                 {(selectedOrder.status === "pending" || selectedOrder.status === "confirmed") && (
@@ -683,25 +784,62 @@ export default function DashboardOrders() {
         loading={statusUpdating}
       />
 
-      {/* Deliver order (supplier) */}
-      <JobActionModal
-        open={actionModal === "deliver" && !!selectedOrder}
-        onClose={() => setActionModal(null)}
-        onConfirm={() =>
-          selectedOrder && handleStatusUpdate(selectedOrder._id, "delivered")
-        }
-        title="Mark as delivered"
-        description={
-          <>
-            Confirm the buyer has <strong className="text-foreground">received and accepted</strong>
-            {" "}the order. Only mark this once you have proof of delivery.
-          </>
-        }
-        icon={CheckCircle2}
-        tone="success"
-        confirmLabel="Yes, delivered"
-        loading={statusUpdating}
-      />
+      {/* Approve delivery — dual-approval modal.
+          Copy/agreement gate flips by role and by paid/COD payment state. */}
+      {(() => {
+        if (!selectedOrder) return null;
+        const isPaid = selectedOrder.paymentStatus === "paid";
+        // Supplier confirming an unpaid order must tick the cash-collected
+        // checkbox, which doubles as the cashCollected flag we send to the API.
+        const requiresCashAgreement = isSupplier && !isPaid;
+        return (
+          <JobActionModal
+            open={actionModal === "deliver" && !!selectedOrder}
+            onClose={() => setActionModal(null)}
+            onConfirm={() =>
+              handleApproveDelivery(selectedOrder._id, requiresCashAgreement)
+            }
+            title={
+              isSupplier ? "Confirm delivery" : "Confirm receipt"
+            }
+            description={
+              isSupplier ? (
+                <>
+                  Confirm the order was{" "}
+                  <strong className="text-foreground">handed off to the buyer</strong>.
+                  The buyer also needs to confirm receipt before the order is finalised.
+                </>
+              ) : (
+                <>
+                  Confirm you&apos;ve <strong className="text-foreground">received the order</strong>{" "}
+                  and the items match what you ordered. The supplier also needs to confirm.
+                </>
+              )
+            }
+            icon={CheckCircle2}
+            tone="success"
+            confirmLabel={isSupplier ? "Yes, delivered" : "Yes, received"}
+            agreementLabel={
+              requiresCashAgreement ? (
+                <>
+                  I&apos;ve <strong>collected ₦
+                  {selectedOrder.totalAmount.toLocaleString("en-NG")}</strong>{" "}
+                  in cash from the buyer (pay-on-delivery).
+                </>
+              ) : undefined
+            }
+            hint={
+              !isPaid && !isSupplier ? (
+                <>
+                  This order is pay-on-delivery. The supplier will confirm the cash collection
+                  on their side, after which the order will be marked delivered.
+                </>
+              ) : undefined
+            }
+            loading={statusUpdating}
+          />
+        );
+      })()}
 
       {/* Cancel order (either party) */}
       <JobActionModal

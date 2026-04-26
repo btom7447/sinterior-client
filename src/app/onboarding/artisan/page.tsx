@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { NairaInput } from "@/components/ui/NairaInput";
 import LocationPicker from "@/components/location/LocationPicker";
 import { toast } from "sonner";
-import { apiPatch, apiUpload } from "@/lib/apiClient";
+import { apiGet, apiPatch, apiUpload } from "@/lib/apiClient";
+import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,13 +42,101 @@ const TOOLS_SUGGESTIONS = [
 ];
 
 const steps = [
-  { number: 1, title: "Portfolio", description: "Show your best work", icon: Camera },
-  { number: 2, title: "Certifications", description: "Your qualifications", icon: Award },
-  { number: 3, title: "Availability", description: "When can clients reach you?", icon: Clock },
-  { number: 4, title: "Service Details", description: "Area & equipment", icon: Wrench },
+  { number: 1, title: "Specialty", description: "What do you do?", icon: Wrench },
+  { number: 2, title: "Portfolio", description: "Show your best work", icon: Camera },
+  { number: 3, title: "Certifications", description: "Your qualifications", icon: Award },
+  { number: 4, title: "Availability", description: "When can clients reach you?", icon: Clock },
+  { number: 5, title: "Service Details", description: "Area & equipment", icon: Wrench },
 ];
 
 // ─── Step components ───────────────────────────────────────────────────────────
+
+function SpecialtyStep({
+  skillCategory,
+  setSkillCategory,
+  skill,
+  setSkill,
+}: {
+  skillCategory: string;
+  setSkillCategory: (v: string) => void;
+  skill: string;
+  setSkill: (v: string) => void;
+}) {
+  const selected = ARTISAN_SKILL_CATEGORIES.find((c) => c.name === skillCategory);
+  const skillOptions = selected?.skills || [];
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold text-foreground mb-1">What do you do?</h2>
+      <p className="text-muted-foreground mb-6">
+        Pick the category that best describes your trade, then your primary skill. Clients filter
+        artisans by these.
+      </p>
+
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-semibold text-foreground mb-2 block">Category</label>
+          <div className="flex flex-wrap gap-2">
+            {ARTISAN_SKILL_CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setSkillCategory(c.name);
+                  setSkill(""); // reset when category changes
+                }}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  skillCategory === c.name
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-foreground hover:bg-secondary/80"
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-foreground mb-2 block">
+            Primary skill {!skillCategory && <span className="text-xs font-normal text-muted-foreground">(pick a category first)</span>}
+          </label>
+          {skillCategory ? (
+            <div className="flex flex-wrap gap-2">
+              {skillOptions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSkill(s)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    skill === s
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-dashed border-border rounded-2xl p-6 text-center text-sm text-muted-foreground">
+              Select a category above to see available skills.
+            </div>
+          )}
+        </div>
+
+        {skillCategory && skill && (
+          <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 text-sm">
+            <p className="text-foreground">
+              You&apos;re registering as a{" "}
+              <strong>{skill}</strong> in <strong>{skillCategory}</strong>.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PortfolioStep({
   items, setItems,
@@ -438,15 +527,18 @@ export default function ArtisanOnboardingPage() {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  // Step 1
+  // Step 1 — Specialty (skill category + primary skill)
+  const [skillCategory, setSkillCategory] = useState("");
+  const [skill, setSkill] = useState("");
+  // Step 2 — Portfolio
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
-  // Step 2
+  // Step 3 — Certifications
   const [certs, setCerts] = useState<Certification[]>([]);
-  // Step 3
+  // Step 4 — Availability
   const [availDays, setAvailDays] = useState<string[]>(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("18:00");
-  // Step 4
+  // Step 5 — Service Details
   const [radius, setRadius] = useState(20);
   const [tools, setTools] = useState<string[]>([]);
   const [extraSkills, setExtraSkills] = useState<string[]>([]);
@@ -454,6 +546,21 @@ export default function ArtisanOnboardingPage() {
   const [artisanLng, setArtisanLng] = useState<number | null>(null);
   const [pricePerDay, setPricePerDay] = useState<number | null>(null);
   const [address, setAddress] = useState("");
+
+  // Pre-fill specialty from /artisans/me on mount so users who already set it
+  // (e.g. via signup or a previous onboarding pass) don't have to re-pick.
+  useEffect(() => {
+    apiGet<{ data: { artisan: { skill?: string; skillCategory?: string } } }>(
+      "/artisans/me"
+    )
+      .then((res) => {
+        if (res.data?.artisan?.skill) setSkill(res.data.artisan.skill);
+        if (res.data?.artisan?.skillCategory) setSkillCategory(res.data.artisan.skillCategory);
+      })
+      .catch(() => {
+        // Endpoint may 404 if the artisan profile doesn't exist yet — that's fine.
+      });
+  }, []);
 
   const current = steps[step - 1];
   const isLast = step === steps.length;
@@ -499,6 +606,8 @@ export default function ArtisanOnboardingPage() {
           additionalSkills: extraSkills,
           ...(pricePerDay != null ? { pricePerDay } : {}),
           ...(address ? { address } : {}),
+          ...(skill ? { skill } : {}),
+          ...(skillCategory ? { skillCategory } : {}),
         });
 
         // 4. Update location separately if captured
@@ -567,16 +676,24 @@ export default function ArtisanOnboardingPage() {
 
           {/* Step content */}
           <div className="flex-1">
-            {step === 1 && <PortfolioStep items={portfolio} setItems={setPortfolio} />}
-            {step === 2 && <CertificationsStep certs={certs} setCerts={setCerts} />}
-            {step === 3 && (
+            {step === 1 && (
+              <SpecialtyStep
+                skillCategory={skillCategory}
+                setSkillCategory={setSkillCategory}
+                skill={skill}
+                setSkill={setSkill}
+              />
+            )}
+            {step === 2 && <PortfolioStep items={portfolio} setItems={setPortfolio} />}
+            {step === 3 && <CertificationsStep certs={certs} setCerts={setCerts} />}
+            {step === 4 && (
               <AvailabilityStep
                 days={availDays} setDays={setAvailDays}
                 startTime={startTime} setStartTime={setStartTime}
                 endTime={endTime} setEndTime={setEndTime}
               />
             )}
-            {step === 4 && (
+            {step === 5 && (
               <ServiceDetailsStep
                 radius={radius} setRadius={setRadius}
                 tools={tools} setTools={setTools}
@@ -596,7 +713,11 @@ export default function ArtisanOnboardingPage() {
                 <ArrowLeft strokeWidth={1} className="w-4 h-4" /> Back
               </Button>
             )}
-            <Button onClick={handleNext} disabled={saving} className="flex-1 rounded-xl gap-2 bg-primary hover:bg-primary/90">
+            <Button
+              onClick={handleNext}
+              disabled={saving || (step === 1 && (!skillCategory || !skill))}
+              className="flex-1 rounded-xl gap-2 bg-primary hover:bg-primary/90"
+            >
               {saving ? "Saving…" : isLast ? "Complete profile" : "Continue"}
               {!saving && !isLast && <ArrowRight strokeWidth={1} className="w-4 h-4" />}
               {!saving && isLast && <Check strokeWidth={1} className="w-4 h-4" />}

@@ -21,6 +21,7 @@ const allSuggestions = ARTISAN_SKILL_CATEGORIES.flatMap((cat) => [
 export default function ArtisanPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
@@ -35,8 +36,13 @@ export default function ArtisanPage() {
     longitude: nearbyEnabled ? longitude : null,
     radiusKm,
     category: selectedCategory,
+    skill: selectedSkill,
     limit: 20,
   });
+
+  // When category changes, clear the selected skill so we don't have a stale filter.
+  const selectedCategoryDef = ARTISAN_SKILL_CATEGORIES.find((c) => c.id === selectedCategory);
+  const subcategorySkills = selectedCategoryDef?.skills || [];
 
   const categories = [
     { id: null, label: "All Services" },
@@ -162,11 +168,14 @@ export default function ArtisanPage() {
           </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-3 scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category.id || "all"}
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => {
+                setSelectedCategory(category.id);
+                setSelectedSkill(null); // reset subcategory when category changes
+              }}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                 selectedCategory === category.id
                   ? "bg-primary text-primary-foreground"
@@ -177,6 +186,35 @@ export default function ArtisanPage() {
             </button>
           ))}
         </div>
+
+        {/* Subcategory (skill) chips — appear once a category is selected. Optional. */}
+        {selectedCategory && subcategorySkills.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-hide">
+            <button
+              onClick={() => setSelectedSkill(null)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                selectedSkill === null
+                  ? "bg-foreground text-background"
+                  : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All {selectedCategoryDef?.name.split(" ")[0].toLowerCase()}
+            </button>
+            {subcategorySkills.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSelectedSkill(s === selectedSkill ? null : s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  selectedSkill === s
+                    ? "bg-foreground text-background"
+                    : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="text-muted-foreground text-sm mb-6">
           {isLoading ? "Searching..." : `Showing ${filteredArtisans?.length || 0} artisans`}
