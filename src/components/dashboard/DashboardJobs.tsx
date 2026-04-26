@@ -784,7 +784,9 @@ export default function DashboardJobs() {
       <JobActionModal
         open={actionModal === "accept" && !!selected}
         onClose={() => setActionModal(null)}
-        onConfirm={() => selected && performAction(selected._id, "accept", "Job accepted")}
+        onConfirm={() => {
+          if (selected) performAction(selected._id, "accept", "Job accepted");
+        }}
         title="Accept this job request"
         description={
           <>
@@ -808,9 +810,9 @@ export default function DashboardJobs() {
       <JobActionModal
         open={actionModal === "reject" && !!selected}
         onClose={() => setActionModal(null)}
-        onConfirm={({ reason }) =>
-          selected && performAction(selected._id, "reject", "Job declined", { reason })
-        }
+        onConfirm={({ reason }) => {
+          if (selected) performAction(selected._id, "reject", "Job declined", { reason });
+        }}
         title="Decline this request"
         description="The client will be notified. They&apos;ll see your reason."
         icon={XCircle}
@@ -826,7 +828,9 @@ export default function DashboardJobs() {
       <JobActionModal
         open={actionModal === "approve-start" && !!selected}
         onClose={() => setActionModal(null)}
-        onConfirm={() => selected && performAction(selected._id, "approve-start", "Start approved")}
+        onConfirm={() => {
+          if (selected) performAction(selected._id, "approve-start", "Start approved");
+        }}
         title="Confirm start"
         description={
           isArtisan ? (
@@ -851,7 +855,9 @@ export default function DashboardJobs() {
       <JobActionModal
         open={actionModal === "approve-end" && !!selected}
         onClose={() => setActionModal(null)}
-        onConfirm={() => selected && performAction(selected._id, "approve-end", "End approved")}
+        onConfirm={() => {
+          if (selected) performAction(selected._id, "approve-end", "End approved");
+        }}
         title="Confirm completion"
         description={
           isArtisan ? (
@@ -877,9 +883,9 @@ export default function DashboardJobs() {
       <JobActionModal
         open={actionModal === "cancel" && !!selected}
         onClose={() => setActionModal(null)}
-        onConfirm={({ reason }) =>
-          selected && performAction(selected._id, "cancel", "Job cancelled", { reason })
-        }
+        onConfirm={({ reason }) => {
+          if (selected) performAction(selected._id, "cancel", "Job cancelled", { reason });
+        }}
         title="Cancel this job"
         description="The other party will be notified and they&apos;ll see your reason."
         icon={XCircle}

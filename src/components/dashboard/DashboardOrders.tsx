@@ -745,9 +745,9 @@ export default function DashboardOrders() {
       <JobActionModal
         open={actionModal === "confirm" && !!selectedOrder}
         onClose={() => setActionModal(null)}
-        onConfirm={() =>
-          selectedOrder && handleStatusUpdate(selectedOrder._id, "confirmed")
-        }
+        onConfirm={() => {
+          if (selectedOrder) handleStatusUpdate(selectedOrder._id, "confirmed");
+        }}
         title="Confirm this order"
         description={
           <>
@@ -768,9 +768,9 @@ export default function DashboardOrders() {
       <JobActionModal
         open={actionModal === "ship" && !!selectedOrder}
         onClose={() => setActionModal(null)}
-        onConfirm={() =>
-          selectedOrder && handleStatusUpdate(selectedOrder._id, "shipped")
-        }
+        onConfirm={() => {
+          if (selectedOrder) handleStatusUpdate(selectedOrder._id, "shipped");
+        }}
         title="Mark as shipped"
         description={
           <>
@@ -845,9 +845,9 @@ export default function DashboardOrders() {
       <JobActionModal
         open={actionModal === "cancel" && !!selectedOrder}
         onClose={() => setActionModal(null)}
-        onConfirm={({ reason }) =>
-          selectedOrder && handleStatusUpdate(selectedOrder._id, "cancelled", reason)
-        }
+        onConfirm={({ reason }) => {
+          if (selectedOrder) handleStatusUpdate(selectedOrder._id, "cancelled", reason);
+        }}
         title="Cancel this order"
         description="The other party will be notified and they'll see your reason."
         icon={XCircle}

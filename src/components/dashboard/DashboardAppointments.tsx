@@ -224,7 +224,7 @@ export default function DashboardAppointments() {
               >
                 <div className="flex items-center gap-3 sm:w-64 shrink-0">
                   <Avatar className="w-12 h-12">
-                    <AvatarImage src={resolveAssetUrl(counterparty?.avatarUrl) || ""} />
+                    <AvatarImage src={resolveAssetUrl(counterparty?.avatarUrl || "")} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {counterparty?.fullName?.charAt(0) || "?"}
                     </AvatarFallback>
@@ -330,9 +330,9 @@ export default function DashboardAppointments() {
       <JobActionModal
         open={actionModal?.kind === "accept"}
         onClose={() => setActionModal(null)}
-        onConfirm={() =>
-          actionModal && action(actionModal.job._id, "accept", "Accepted")
-        }
+        onConfirm={() => {
+          if (actionModal) action(actionModal.job._id, "accept", "Accepted");
+        }}
         title="Accept this booking"
         description={
           <>
@@ -350,9 +350,9 @@ export default function DashboardAppointments() {
       <JobActionModal
         open={actionModal?.kind === "reject"}
         onClose={() => setActionModal(null)}
-        onConfirm={({ reason }) =>
-          actionModal && action(actionModal.job._id, "reject", "Declined", { reason })
-        }
+        onConfirm={({ reason }) => {
+          if (actionModal) action(actionModal.job._id, "reject", "Declined", { reason });
+        }}
         title="Decline this booking"
         description="The client will be notified and they'll see your reason."
         icon={XCircle}
@@ -367,9 +367,9 @@ export default function DashboardAppointments() {
       <JobActionModal
         open={actionModal?.kind === "cancel"}
         onClose={() => setActionModal(null)}
-        onConfirm={({ reason }) =>
-          actionModal && action(actionModal.job._id, "cancel", "Cancelled", { reason })
-        }
+        onConfirm={({ reason }) => {
+          if (actionModal) action(actionModal.job._id, "cancel", "Cancelled", { reason });
+        }}
         title="Cancel this booking"
         description="The other party will be notified and they'll see your reason."
         icon={XCircle}
