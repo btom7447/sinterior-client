@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/ErrorState";
 import CategorySidebar from "@/components/products/CategorySidebar";
 import CategoryProductGrid from "@/components/products/CategoryProductGrid";
 import { apiGet } from "@/lib/apiClient";
@@ -25,6 +26,7 @@ const searchSuggestions = [
 export default function ProductsPage() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("For you");
@@ -42,6 +44,7 @@ export default function ProductsPage() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const params = new URLSearchParams({ limit: "40" });
 
@@ -60,7 +63,7 @@ export default function ProductsPage() {
       setProducts(data.data || []);
       setPagination(data.pagination);
     } catch {
-      // silent — show empty
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -219,6 +222,13 @@ export default function ProductsPage() {
                   ))}
                 </div>
               </div>
+            ) : error ? (
+              <ErrorState
+                title="Couldn't load products"
+                description="Something went wrong while fetching products. Please try again."
+                onRetry={fetchProducts}
+                retrying={loading}
+              />
             ) : products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
 import { Search, ChevronLeft, ChevronRight, MoreHorizontal, Ban, CheckCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricStrip, type Metric } from "@/components/admin/MetricStrip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,12 +36,28 @@ interface Pagination {
   totalResults: number;
 }
 
+interface UserPageStats {
+  total: number;
+  banned: number;
+  newThisMonth: number;
+  clients: number;
+  artisans: number;
+  suppliers: number;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, totalPages: 1, totalResults: 0 });
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<UserPageStats | null>(null);
+
+  useEffect(() => {
+    apiGet<{ data: { stats: UserPageStats } }>("/admin/page-stats?page=users")
+      .then((r) => setStats(r.data.stats))
+      .catch(() => {});
+  }, []);
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -71,12 +89,29 @@ export default function AdminUsersPage() {
     }
   };
 
+  const metrics: Metric[] | null = stats
+    ? [
+        { label: "Total", value: stats.total.toLocaleString("en-NG") },
+        { label: "Clients", value: stats.clients.toLocaleString("en-NG") },
+        { label: "Artisans", value: stats.artisans.toLocaleString("en-NG") },
+        { label: "Suppliers", value: stats.suppliers.toLocaleString("en-NG") },
+        { label: "New This Month", value: stats.newThisMonth.toLocaleString("en-NG"), tone: "info" },
+        {
+          label: "Banned",
+          value: stats.banned.toLocaleString("en-NG"),
+          tone: stats.banned > 0 ? "danger" : "default",
+        },
+      ]
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">User Management</h1>
         <p className="text-sm text-muted-foreground mt-1">View and manage all platform users</p>
       </div>
+
+      <MetricStrip metrics={metrics} loading={!stats} columns={6} />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -120,9 +155,24 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">Loading...</td>
-                </tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-8 h-8 rounded-full" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-40" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4"><Skeleton className="h-5 w-16 rounded-lg" /></td>
+                    <td className="p-4 hidden md:table-cell"><Skeleton className="h-4 w-24" /></td>
+                    <td className="p-4 hidden lg:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-4" /></td>
+                    <td className="p-4 text-right"><Skeleton className="h-6 w-6 ml-auto" /></td>
+                  </tr>
+                ))
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-muted-foreground">No users found</td>

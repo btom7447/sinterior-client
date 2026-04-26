@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import { Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
@@ -66,6 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </h2>
             </div>
           </div>
+          <NotificationBell />
         </header>
 
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto min-h-0">

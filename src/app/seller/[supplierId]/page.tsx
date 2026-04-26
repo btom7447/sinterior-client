@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/ErrorState";
 import {
-  ArrowLeft, MapPin, Star, MessageCircle, Verified,
+  ArrowLeft, MapPin, Star, MessageCircle, ShieldCheck, ShieldOff,
   Package, Truck, Shield, Building2, Clock, Calendar,
   ChevronRight, ShoppingCart, Tag,
 } from "lucide-react";
@@ -141,10 +142,13 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
   if (!profile) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-          <p className="text-muted-foreground">Seller not found</p>
-          <Button variant="outline" onClick={() => router.push("/products")}>Back to Products</Button>
-        </div>
+        <ErrorState
+          title="Couldn't load this seller"
+          description="The seller may have been removed, or we hit a temporary issue fetching their profile."
+          onRetry={() => window.location.reload()}
+          secondaryLabel="Browse all products"
+          onSecondary={() => router.push("/products")}
+        />
       </AppLayout>
     );
   }
@@ -172,8 +176,10 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
           <h1 className="text-sm font-semibold truncate flex-1">
             {business?.businessName || profile.fullName}
           </h1>
-          {business?.isVerified && (
-            <Verified strokeWidth={1} className="w-4 h-4 text-green-500 shrink-0" />
+          {business?.isVerified ? (
+            <ShieldCheck strokeWidth={1.5} className="w-4 h-4 text-green-500 shrink-0" />
+          ) : (
+            <ShieldOff strokeWidth={1.5} className="w-4 h-4 text-muted-foreground shrink-0" />
           )}
         </div>
 
@@ -194,9 +200,17 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-foreground">{business?.businessName || profile.fullName}</h2>
-                {business?.isVerified && (
+                {business?.isVerified ? (
                   <Badge variant="secondary" className="gap-1 text-[10px]">
-                    <Verified strokeWidth={1} className="w-3.5 h-3.5 text-green-500" /> Verified
+                    <ShieldCheck strokeWidth={1.5} className="w-3.5 h-3.5 text-green-500" /> Verified
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 text-[10px] border-muted-foreground/30 text-muted-foreground"
+                    title="Unverified"
+                  >
+                    <ShieldOff strokeWidth={1.5} className="w-3.5 h-3.5" /> Unverified
                   </Badge>
                 )}
               </div>
@@ -252,11 +266,28 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
             </p>
           )}
 
+          {/* Unverified empty-state note — mirrors the dashed border pattern */}
+          {business && !business.isVerified && (
+            <div className="border border-dashed border-border rounded-2xl p-5 flex items-start gap-3">
+              <ShieldOff strokeWidth={1.5} className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">This business is unverified</p>
+                <p className="mt-0.5">
+                  Sintherior verifies businesses by reviewing CAC and supporting documents. Until verification is complete, purchase at your own discretion.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Trust Badges */}
           <div className="flex flex-wrap gap-2">
-            {business?.isVerified && (
+            {business?.isVerified ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 text-xs font-medium">
-                <Shield strokeWidth={1} className="w-3.5 h-3.5" /> Verified Supplier
+                <ShieldCheck strokeWidth={1.5} className="w-3.5 h-3.5" /> Verified Supplier
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-muted-foreground text-xs font-medium border border-border">
+                <ShieldOff strokeWidth={1.5} className="w-3.5 h-3.5" /> Unverified Supplier
               </span>
             )}
             {(business?.shippingStatesCount ?? 0) > 0 && (

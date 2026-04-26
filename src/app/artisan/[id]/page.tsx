@@ -8,13 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NIGERIAN_STATES } from "@/lib/constants";
+import { ErrorState } from "@/components/ui/ErrorState";
 import {
-  Star, MapPin, Phone, Clock, CheckCircle2,
+  Star, MapPin, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
-  Shield, ThumbsUp, Hammer, MessageCircle,
+  Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,7 +23,8 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const { profile, isAuthenticated } = useAuth();
   const [artisan, setArtisan] = useState<ApiArtisan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hireForm, setHireForm] = useState({ title: "", description: "", budget: "", state: "", city: "", appointmentDate: "" });
+  const [bookingType, setBookingType] = useState<"urgent" | "scheduled">("urgent");
+  const [scheduledDate, setScheduledDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -48,19 +48,27 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
       return;
     }
     if (!artisan?.profileId?._id) return;
+    if (bookingType === "scheduled" && !scheduledDate) {
+      toast.error("Please pick a start date for the scheduled booking.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await apiPost("/jobs", {
+      const res = await apiPost<{ data: { job: { _id: string } } }>("/jobs", {
         artisanId: artisan.profileId._id,
-        title: hireForm.title,
-        description: hireForm.description,
-        budget: hireForm.budget ? Number(hireForm.budget) : undefined,
-        state: hireForm.state || undefined,
-        city: hireForm.city || undefined,
-        appointmentDate: hireForm.appointmentDate || undefined,
+        bookingType,
+        scheduledDate: bookingType === "scheduled" ? scheduledDate : undefined,
       });
-      toast.success("Job request sent! The artisan will be notified.");
-      setHireForm({ title: "", description: "", budget: "", state: "", city: "", appointmentDate: "" });
+      toast.success(
+        bookingType === "urgent"
+          ? "Urgent request sent. The artisan will be notified now."
+          : "Booking sent. You'll see it under Appointments once accepted."
+      );
+      // Drop the user straight into chat so they can sort out the details there.
+      const jobId = res.data?.job?._id;
+      if (jobId) router.push(`/dashboard/chat?jobId=${jobId}`);
+      else router.push("/dashboard/jobs");
+      setScheduledDate("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send job request.");
     } finally {
@@ -84,10 +92,13 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   if (!artisan) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-          <p className="text-muted-foreground">Artisan not found</p>
-          <Button variant="outline" onClick={() => router.push("/artisan")}>Back to Artisans</Button>
-        </div>
+        <ErrorState
+          title="Couldn't load this artisan"
+          description="The artisan profile may have been removed, or we hit a temporary issue fetching it."
+          onRetry={() => window.location.reload()}
+          secondaryLabel="Browse all artisans"
+          onSecondary={() => router.push("/artisan")}
+        />
       </AppLayout>
     );
   }
@@ -96,7 +107,6 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const name = artisanProfile?.fullName || "Unknown";
   const avatar = resolveAssetUrl(artisanProfile?.avatarUrl || "") || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
   const bio = artisanProfile?.bio;
-  const phone = artisanProfile?.phone;
   const location = artisan.address || [artisan.city, artisan.state].filter(Boolean).join(", ");
   const workHours = artisan.workHoursStart && artisan.workHoursEnd
     ? `${artisan.workHoursStart} – ${artisan.workHoursEnd}`
@@ -132,9 +142,21 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
             <div className="flex flex-col md:flex-row gap-6">
               <div className="relative shrink-0">
                 <img src={avatar} alt={name} className="w-28 h-28 md:w-36 md:h-36 rounded-2xl object-cover border-4 border-card shadow-lg" />
-                <div className="absolute -top-2 -right-2 bg-success/10 text-success p-1.5 rounded-full shadow-md border border-success/20">
-                  <CheckCircle2 strokeWidth={1.5} className="w-5 h-5" />
-                </div>
+                {artisan.isVerified ? (
+                  <div
+                    className="absolute -top-2 -right-2 bg-success text-white p-1.5 rounded-full shadow-md ring-2 ring-card"
+                    title="Verified by Sintherior"
+                  >
+                    <ShieldCheck strokeWidth={2} className="w-5 h-5" />
+                  </div>
+                ) : (
+                  <div
+                    className="absolute -top-2 -right-2 bg-muted-foreground/15 text-muted-foreground p-1.5 rounded-full shadow-md ring-2 ring-card"
+                    title="Unverified"
+                  >
+                    <ShieldOff strokeWidth={2} className="w-5 h-5" />
+                  </div>
+                )}
               </div>
 
               <div className="flex-1">
@@ -169,13 +191,30 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
+        {/* Unverified note — same dashed empty-state look as the no-portfolio block */}
+        {!artisan.isVerified && (
+          <div className="max-w-5xl mx-auto px-4 mt-6">
+            <div className="border border-dashed border-border rounded-2xl p-5 flex items-start gap-3">
+              <ShieldOff className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" strokeWidth={1.5} />
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">This artisan is unverified</p>
+                <p className="mt-0.5">
+                  Sintherior verifies artisan identities by reviewing government-issued ID. Until verification is complete, hire at your own discretion.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Trust Badges */}
         <div className="max-w-5xl mx-auto px-4 mt-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { icon: Shield, label: "Quality Assurance", desc: "Vetted & background checked" },
               { icon: Award, label: `${artisan.experienceYears || 0}+ Years Experience`, desc: "Industry veteran" },
-              { icon: CheckCircle2, label: "Verified Professional", desc: "Identity confirmed" },
+              artisan.isVerified
+                ? { icon: ShieldCheck, label: "Verified Professional", desc: "Identity confirmed" }
+                : { icon: ShieldOff, label: "Unverified", desc: "Identity not yet confirmed" },
               { icon: ThumbsUp, label: "Money-Back Guarantee", desc: "If not satisfied" },
             ].map((badge, i) => (
               <div key={i} className="bg-card rounded-xl p-4 text-center shadow-sm border border-border hover:shadow-md transition-shadow">
@@ -237,7 +276,6 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
               <div className="space-y-5">
                 {[
                   ...(location ? [{ icon: MapPin, label: "Address", value: location }] : []),
-                  { icon: Phone, label: "Phone", value: phone || "Not provided" },
                   { icon: Clock, label: "Working Hours", value: workHours },
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -252,11 +290,6 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                 ))}
               </div>
               <div className="flex flex-col gap-2 mt-6">
-                {phone && (
-                  <Button className="w-full rounded-xl" size="lg" onClick={() => window.open(`tel:${phone}`)}>
-                    <Phone strokeWidth={1} className="w-4 h-4 mr-2" /> Call Now
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   className="w-full rounded-xl"
@@ -276,7 +309,9 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
 
             <div id="hire-form" className="bg-card rounded-2xl p-6 shadow-sm border border-border relative">
               <h2 className="font-display text-xl font-bold text-foreground mb-2">Hire This Artisan</h2>
-              <p className="text-sm text-muted-foreground mb-6">Describe the job you need done. The artisan will be notified and can accept your request.</p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Send a request now and chat with the artisan about details. They&apos;ll accept or decline.
+              </p>
 
               {!isAuthenticated ? (
                 <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -290,38 +325,65 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                 </div>
               ) : (
                 <form onSubmit={handleHireSubmit} className="space-y-4">
-                  <Input placeholder="Job title (e.g. Kitchen renovation)" value={hireForm.title} onChange={(e) => setHireForm({ ...hireForm, title: e.target.value })} required className="rounded-xl" />
-                  <Textarea placeholder="Describe the work you need done in detail..." value={hireForm.description} onChange={(e) => setHireForm({ ...hireForm, description: e.target.value })} rows={4} className="rounded-xl resize-none" />
-                  <Input type="number" placeholder="Budget (₦)" value={hireForm.budget} onChange={(e) => setHireForm({ ...hireForm, budget: e.target.value })} min="0" className="rounded-xl" />
+                  {/* Urgent vs Scheduled choice */}
                   <div className="grid grid-cols-2 gap-3">
-                    <select
-                      value={hireForm.state}
-                      onChange={(e) => setHireForm({ ...hireForm, state: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    <button
+                      type="button"
+                      onClick={() => setBookingType("urgent")}
+                      className={`text-left p-3 rounded-xl border transition-colors ${
+                        bookingType === "urgent"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      }`}
                     >
-                      <option value="">State</option>
-                      {NIGERIAN_STATES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                    <Input placeholder="City / LGA" value={hireForm.city} onChange={(e) => setHireForm({ ...hireForm, city: e.target.value })} className="rounded-xl" />
+                      <p className="text-sm font-semibold text-foreground">Hire urgently</p>
+                      <p className="text-xs text-muted-foreground">Need this done ASAP</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingType("scheduled")}
+                      className={`text-left p-3 rounded-xl border transition-colors ${
+                        bookingType === "scheduled"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-foreground">Book for later</p>
+                      <p className="text-xs text-muted-foreground">Pick a start date</p>
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 block">
-                      <Calendar strokeWidth={1} className="w-3.5 h-3.5 inline mr-1.5" />
-                      Preferred Date
-                    </label>
-                    <Input
-                      type="date"
-                      value={hireForm.appointmentDate}
-                      onChange={(e) => setHireForm({ ...hireForm, appointmentDate: e.target.value })}
-                      min={new Date().toISOString().split("T")[0]}
-                      className="rounded-xl"
-                    />
-                  </div>
+
+                  {bookingType === "scheduled" && (
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">
+                        <Calendar strokeWidth={1} className="w-3.5 h-3.5 inline mr-1.5" />
+                        Job start date
+                      </label>
+                      <Input
+                        type="date"
+                        value={scheduledDate}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                        required
+                        className="rounded-xl"
+                      />
+                    </div>
+                  )}
+
+                  {/* Pricing note */}
+                  {artisan.pricePerDay && (
+                    <div className="p-3 rounded-xl bg-secondary/40 text-xs text-muted-foreground">
+                      You&apos;ll be charged <strong className="text-foreground">{formatNaira(artisan.pricePerDay)}/day</strong> for every day this job stays in progress. Both of you confirm start and end.
+                    </div>
+                  )}
+
                   <Button type="submit" disabled={submitting} className="w-full rounded-xl" size="lg">
                     <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
-                    {submitting ? "Sending Request..." : "Send Hire Request"}
+                    {submitting
+                      ? "Sending Request..."
+                      : bookingType === "urgent"
+                      ? "Send Urgent Request"
+                      : "Send Booking Request"}
                   </Button>
                 </form>
               )}

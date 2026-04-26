@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/apiClient";
 import { Plus, Pencil, Trash2, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 interface BlogPost {
@@ -142,9 +143,24 @@ export default function AdminBlogPage() {
       {/* Post list */}
       <div className="space-y-3">
         {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4"
+            >
+              <Skeleton className="w-16 h-16 rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-full max-w-md" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </div>
+            </div>
+          ))
         ) : posts.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-8 text-center text-muted-foreground">
             No blog posts yet

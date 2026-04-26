@@ -2,51 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/apiClient";
-import {
-  Users,
-  ShoppingBag,
-  Package,
-  Briefcase,
-  DollarSign,
-  BadgeCheck,
-  Scale,
-  TrendingUp,
-} from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricStrip, type Metric } from "@/components/admin/MetricStrip";
 
 interface Stats {
-  totalUsers: number;
-  totalOrders: number;
-  totalProducts: number;
-  totalJobs: number;
+  activeUsers: number;
+  activeArtisans: number;
+  activeSellers: number;
+  activeOrders: number;
+  productsInStock: number;
+  activeJobs: number;
   totalRevenue: number;
   pendingVerifications: number;
   openDisputes: number;
   newUsersThisMonth: number;
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  color: string;
-}) {
-  return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex items-start gap-4">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-        <Icon className="w-5 h-5" strokeWidth={1.5} />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-foreground">{value}</p>
-        <p className="text-sm text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
-}
+const fmtN = (n: number) => n.toLocaleString("en-NG");
+const fmtNaira = (n: number) => `₦${fmtN(n)}`;
 
 export default function AdminOverviewPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -58,12 +31,13 @@ export default function AdminOverviewPage() {
         const res = await apiGet<{ data: { stats: Stats } }>("/admin/stats");
         setStats(res.data.stats);
       } catch {
-        // API not built yet — show zeroes
         setStats({
-          totalUsers: 0,
-          totalOrders: 0,
-          totalProducts: 0,
-          totalJobs: 0,
+          activeUsers: 0,
+          activeArtisans: 0,
+          activeSellers: 0,
+          activeOrders: 0,
+          productsInStock: 0,
+          activeJobs: 0,
           totalRevenue: 0,
           pendingVerifications: 0,
           openDisputes: 0,
@@ -77,36 +51,93 @@ export default function AdminOverviewPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((__, j) => (
+                <div key={j} className="bg-card border border-border rounded-2xl p-4 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-7 w-16" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   const s = stats!;
 
+  const peopleMetrics: Metric[] = [
+    { label: "Active Users", value: fmtN(s.activeUsers) },
+    { label: "Active Artisans", value: fmtN(s.activeArtisans) },
+    { label: "Active Sellers", value: fmtN(s.activeSellers) },
+    { label: "New Users (Month)", value: fmtN(s.newUsersThisMonth), tone: "info" },
+  ];
+
+  const marketplaceMetrics: Metric[] = [
+    { label: "Active Orders", value: fmtN(s.activeOrders) },
+    { label: "Active Jobs", value: fmtN(s.activeJobs) },
+    { label: "Products in Stock", value: fmtN(s.productsInStock) },
+  ];
+
+  const revenueMetrics: Metric[] = [
+    { label: "Total Revenue", value: fmtNaira(s.totalRevenue), tone: "success" },
+  ];
+
+  const opsMetrics: Metric[] = [
+    {
+      label: "Pending Verifications",
+      value: fmtN(s.pendingVerifications),
+      tone: s.pendingVerifications > 0 ? "warning" : "default",
+    },
+    {
+      label: "Open Disputes",
+      value: fmtN(s.openDisputes),
+      tone: s.openDisputes > 0 ? "danger" : "default",
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Admin Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">Platform overview and key metrics</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={s.totalUsers} icon={Users} color="bg-blue-500/10 text-blue-500" />
-        <StatCard label="Total Orders" value={s.totalOrders} icon={ShoppingBag} color="bg-green-500/10 text-green-500" />
-        <StatCard label="Total Products" value={s.totalProducts} icon={Package} color="bg-purple-500/10 text-purple-500" />
-        <StatCard label="Total Jobs" value={s.totalJobs} icon={Briefcase} color="bg-orange-500/10 text-orange-500" />
-        <StatCard
-          label="Total Revenue"
-          value={`\u20A6${s.totalRevenue.toLocaleString()}`}
-          icon={DollarSign}
-          color="bg-emerald-500/10 text-emerald-500"
-        />
-        <StatCard label="Pending Verifications" value={s.pendingVerifications} icon={BadgeCheck} color="bg-yellow-500/10 text-yellow-500" />
-        <StatCard label="Open Disputes" value={s.openDisputes} icon={Scale} color="bg-red-500/10 text-red-500" />
-        <StatCard label="New Users (Month)" value={s.newUsersThisMonth} icon={TrendingUp} color="bg-teal-500/10 text-teal-500" />
-      </div>
+      <Section title="People">
+        <MetricStrip metrics={peopleMetrics} columns={4} />
+      </Section>
+
+      <Section title="Marketplace activity">
+        <MetricStrip metrics={marketplaceMetrics} columns={3} />
+      </Section>
+
+      <Section title="Revenue">
+        <MetricStrip metrics={revenueMetrics} columns={2} />
+      </Section>
+
+      <Section title="Operations">
+        <MetricStrip metrics={opsMetrics} columns={2} />
+      </Section>
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+        {title}
+      </h2>
+      {children}
+    </section>
   );
 }

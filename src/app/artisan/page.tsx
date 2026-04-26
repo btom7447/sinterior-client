@@ -10,6 +10,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useArtisanSearch } from "@/hooks/useArtisanSearch";
 import LocationPermissionBanner from "@/components/artisan/LocationPermissionBanner";
 import ArtisanCard from "@/components/artisan/ArtisanCard";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 
 const allSuggestions = ARTISAN_SKILL_CATEGORIES.flatMap((cat) => [
@@ -202,12 +203,11 @@ export default function ArtisanPage() {
         )}
 
         {error && (
-          <div className="text-center py-12">
-            <p className="text-destructive">Failed to load artisans. Please try again.</p>
-            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
+          <ErrorState
+            title="Couldn't load artisans"
+            description="We hit a snag fetching the artisan list. This is usually temporary."
+            onRetry={() => window.location.reload()}
+          />
         )}
 
         {!isLoading && !error && filteredArtisans?.length === 0 && (

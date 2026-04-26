@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
 import { Scale, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricStrip, type Metric } from "@/components/admin/MetricStrip";
 import { toast } from "sonner";
 
 interface DisputeRow {
@@ -33,6 +35,14 @@ const statusColors: Record<string, string> = {
   dismissed: "bg-gray-500/10 text-gray-600",
 };
 
+interface DisputePageStats {
+  open: number;
+  underReview: number;
+  resolved: number;
+  dismissed: number;
+  total: number;
+}
+
 export default function AdminDisputesPage() {
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, totalPages: 1, totalResults: 0 });
@@ -41,6 +51,17 @@ export default function AdminDisputesPage() {
   const [selected, setSelected] = useState<DisputeRow | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [resolution, setResolution] = useState("");
+  const [stats, setStats] = useState<DisputePageStats | null>(null);
+
+  const refreshStats = useCallback(() => {
+    apiGet<{ data: { stats: DisputePageStats } }>("/admin/page-stats?page=disputes")
+      .then((r) => setStats(r.data.stats))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshStats();
+  }, [refreshStats]);
 
   const fetchDisputes = useCallback(async (page = 1) => {
     setLoading(true);
@@ -69,10 +90,21 @@ export default function AdminDisputesPage() {
       setAdminNote("");
       setResolution("");
       fetchDisputes(pagination.page);
+      refreshStats();
     } catch {
       toast.error("Action failed");
     }
   };
+
+  const metrics: Metric[] | null = stats
+    ? [
+        { label: "Total", value: stats.total.toLocaleString("en-NG") },
+        { label: "Open", value: stats.open.toLocaleString("en-NG"), tone: stats.open > 0 ? "danger" : "default" },
+        { label: "Under Review", value: stats.underReview.toLocaleString("en-NG"), tone: stats.underReview > 0 ? "warning" : "default" },
+        { label: "Resolved", value: stats.resolved.toLocaleString("en-NG"), tone: "success" },
+        { label: "Dismissed", value: stats.dismissed.toLocaleString("en-NG") },
+      ]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,6 +112,8 @@ export default function AdminDisputesPage() {
         <h1 className="text-2xl font-display font-bold text-foreground">Dispute Resolution</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage and resolve platform disputes</p>
       </div>
+
+      <MetricStrip metrics={metrics} loading={!stats} columns={5} />
 
       <div className="flex gap-2 flex-wrap">
         {["open", "under_review", "resolved", "dismissed", ""].map((s) => (
@@ -99,9 +133,24 @@ export default function AdminDisputesPage() {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-full max-w-md" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Skeleton className="h-6 w-20 rounded-lg" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            </div>
+          ))
         ) : disputes.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-8 text-center text-muted-foreground">
             No disputes found

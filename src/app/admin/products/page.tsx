@@ -9,6 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricStrip, type Metric } from "@/components/admin/MetricStrip";
 import { toast } from "sonner";
 
 interface ProductRow {
@@ -29,11 +31,26 @@ interface Pagination {
   totalResults: number;
 }
 
+interface ProductPageStats {
+  total: number;
+  inStock: number;
+  outOfStock: number;
+  hidden: number;
+  lowStock: number;
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, totalPages: 1, totalResults: 0 });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<ProductPageStats | null>(null);
+
+  useEffect(() => {
+    apiGet<{ data: { stats: ProductPageStats } }>("/admin/page-stats?page=products")
+      .then((r) => setStats(r.data.stats))
+      .catch(() => {});
+  }, []);
 
   const fetchProducts = useCallback(async (page = 1) => {
     setLoading(true);
@@ -64,12 +81,24 @@ export default function AdminProductsPage() {
     }
   };
 
+  const metrics: Metric[] | null = stats
+    ? [
+        { label: "Total", value: stats.total.toLocaleString("en-NG") },
+        { label: "In Stock", value: stats.inStock.toLocaleString("en-NG"), tone: "success" },
+        { label: "Low Stock", value: stats.lowStock.toLocaleString("en-NG"), tone: stats.lowStock > 0 ? "warning" : "default" },
+        { label: "Out of Stock", value: stats.outOfStock.toLocaleString("en-NG"), tone: stats.outOfStock > 0 ? "danger" : "default" },
+        { label: "Hidden", value: stats.hidden.toLocaleString("en-NG") },
+      ]
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Product Management</h1>
         <p className="text-sm text-muted-foreground mt-1">View and moderate all platform products</p>
       </div>
+
+      <MetricStrip metrics={metrics} loading={!stats} columns={5} />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -100,9 +129,16 @@ export default function AdminProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">Loading...</td>
-                </tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="p-4"><Skeleton className="h-4 w-40" /></td>
+                    <td className="p-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-16" /></td>
+                    <td className="p-4 hidden lg:table-cell"><Skeleton className="h-4 w-20" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-4" /></td>
+                    <td className="p-4 text-right"><Skeleton className="h-6 w-6 ml-auto" /></td>
+                  </tr>
+                ))
               ) : products.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-muted-foreground">No products found</td>

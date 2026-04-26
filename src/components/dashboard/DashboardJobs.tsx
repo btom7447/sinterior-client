@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
 import { formatNaira, NIGERIAN_STATES } from "@/lib/constants";
 import { resolveAssetUrl } from "@/types/api";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { JobActionModal } from "@/components/dashboard/JobActionModal";
 import { toast } from "sonner";
 
 interface ProfileInfo {
@@ -45,8 +46,21 @@ interface Job {
   state?: string;
   city?: string;
   appointmentDate?: string;
+  scheduledDate?: string;
+  bookingType?: "urgent" | "scheduled";
   status: "pending" | "accepted" | "in_progress" | "completed" | "cancelled";
   paymentStatus?: "pending" | "paid" | "failed";
+  dailyRate?: number;
+  daysCharged?: number;
+  totalAmount?: number;
+  startedAt?: string;
+  endedAt?: string;
+  clientStartApproved?: boolean;
+  artisanStartApproved?: boolean;
+  clientEndApproved?: boolean;
+  artisanEndApproved?: boolean;
+  cancellationReason?: string;
+  cancelledBy?: "client" | "artisan";
   startDate?: string;
   endDate?: string;
   createdAt: string;
@@ -76,7 +90,17 @@ const CLIENT_TRANSITIONS: Record<string, string[]> = {
 export default function DashboardJobs() {
   const { profile } = useAuth();
   const router = useRouter();
-  const isArtisan = profile?.role === "artisan";
+  const searchParams = useSearchParams();
+
+  // ?as=artisan|client — explicit override. Otherwise default by role.
+  const explicitAs = searchParams?.get("as");
+  const view: "artisan" | "client" =
+    explicitAs === "artisan" || explicitAs === "client"
+      ? explicitAs
+      : profile?.role === "artisan"
+      ? "artisan"
+      : "client";
+  const isArtisan = view === "artisan";
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, pages: 0 });
@@ -101,32 +125,51 @@ export default function DashboardJobs() {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
+  // Action modal state — replaces native confirm() dialogs
+  const [actionModal, setActionModal] = useState<
+    | null
+    | "accept"
+    | "reject"
+    | "cancel"
+    | "approve-start"
+    | "approve-end"
+  >(null);
+
   const fetchJobs = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "10" });
+      const params = new URLSearchParams({ page: String(page), limit: "10", as: view });
       if (filter !== "all") params.set("status", filter);
       const data = await apiGet<{ data: { jobs: Job[] }; pagination: Pagination }>(`/jobs?${params}`);
       setJobs(data.data?.jobs || []);
       setPagination(data.pagination);
     } catch { toast.error("Failed to load jobs"); }
     finally { setLoading(false); }
-  }, [filter]);
+  }, [filter, view]);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-  const updateStatus = async (id: string, status: string) => {
+  const performAction = async (
+    id: string,
+    action: "accept" | "reject" | "cancel" | "approve-start" | "approve-end",
+    successMsg: string,
+    body: Record<string, unknown> = {}
+  ) => {
     setStatusUpdating(true);
     try {
-      const res = await apiPatch<{ data: { job: Job } }>(`/jobs/${id}/status`, { status });
-      toast.success(`Job ${status.replace("_", " ")}`);
-      if (status === "accepted" && res.data?.job?.appointmentDate) {
-        toast.success("Appointment scheduled automatically", { description: `Date: ${fmtDate(res.data.job.appointmentDate)}` });
-      }
+      const res = await apiPost<{ data: { job: Job }; message?: string }>(
+        `/jobs/${id}/${action}`,
+        body
+      );
+      toast.success(res.message || successMsg);
       fetchJobs(pagination.page);
-      if (selected?._id === id) setSelected((p) => p ? { ...p, status: status as Job["status"] } : null);
-    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
-    finally { setStatusUpdating(false); }
+      if (selected?._id === id && res.data?.job) setSelected(res.data.job);
+      setActionModal(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setStatusUpdating(false);
+    }
   };
 
   const handleMessage = async (participantId: string) => {
@@ -229,8 +272,14 @@ export default function DashboardJobs() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">My Jobs</h1>
-        <p className="text-muted-foreground text-sm mt-1">Track and manage job requests</p>
+        <h1 className="font-display text-2xl font-bold text-foreground">
+          {isArtisan ? "Jobs Hired For" : "My Hires"}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isArtisan
+            ? "Job requests sent to you — accept, decline, and manage progress."
+            : "Artisans you've hired — track progress and confirm start/completion."}
+        </p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -335,7 +384,30 @@ export default function DashboardJobs() {
               )}
 
               <div className="space-y-2 text-sm">
-                {selected.budget != null && <div className="flex justify-between"><span className="text-muted-foreground">Budget</span><span className="font-semibold">{fmt(selected.budget)}</span></div>}
+                {selected.dailyRate != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Daily rate</span>
+                    <span className="font-semibold">{fmt(selected.dailyRate)} / day</span>
+                  </div>
+                )}
+                {selected.daysCharged != null && selected.totalAmount != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-semibold">{fmt(selected.totalAmount)} ({selected.daysCharged} day{selected.daysCharged === 1 ? "" : "s"})</span>
+                  </div>
+                )}
+                {selected.bookingType && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="capitalize font-medium">{selected.bookingType === "urgent" ? "Urgent" : "Scheduled"}</span>
+                  </div>
+                )}
+                {selected.scheduledDate && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Booked for</span>
+                    <span>{fmtDate(selected.scheduledDate)}</span>
+                  </div>
+                )}
                 {(selected.state || selected.city || selected.location) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Location</span>
@@ -345,7 +417,15 @@ export default function DashboardJobs() {
                   </div>
                 )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status].color}`}>{STATUS_CONFIG[selected.status].label}</span></div>
-                {selected.budget != null && (
+                {selected.status === "cancelled" && selected.cancellationReason && (
+                  <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                    <p className="text-xs uppercase tracking-wider text-destructive font-medium mb-1">
+                      Cancelled by {selected.cancelledBy === "client" ? "client" : selected.cancelledBy === "artisan" ? "artisan" : "—"}
+                    </p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{selected.cancellationReason}</p>
+                  </div>
+                )}
+                {selected.totalAmount != null && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Payment</span>
                     <span className={`capitalize font-medium ${selected.paymentStatus === "paid" ? "text-success" : selected.paymentStatus === "failed" ? "text-destructive" : "text-warning"}`}>
@@ -373,14 +453,15 @@ export default function DashboardJobs() {
                   {isArtisan ? "Message Client" : "Message Artisan"}
                 </button>
 
-                {!isArtisan && selected.budget != null && selected.budget > 0 && selected.paymentStatus !== "paid" && selected.status !== "cancelled" && selected.status !== "pending" && (
+                {/* Pay total — appears once a job is completed and not yet paid */}
+                {!isArtisan && selected.status === "completed" && selected.totalAmount && selected.totalAmount > 0 && selected.paymentStatus !== "paid" && (
                   <button
                     onClick={() => handlePay(selected._id)}
                     disabled={payLoading}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
                   >
                     <CreditCard className="w-4 h-4" strokeWidth={1} />
-                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.budget)}`}
+                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.totalAmount)} (${selected.daysCharged} day${selected.daysCharged === 1 ? "" : "s"})`}
                   </button>
                 )}
 
@@ -394,17 +475,135 @@ export default function DashboardJobs() {
                   </button>
                 )}
 
-                {transitions[selected.status] && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">Update Status</p>
-                    <div className="flex gap-2">
-                      {transitions[selected.status].map((next) => (
-                        <button key={next} onClick={() => updateStatus(selected._id, next)} disabled={statusUpdating} className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${next === "cancelled" ? "bg-destructive/10 text-destructive hover:bg-destructive/20" : "bg-primary/10 text-primary hover:bg-primary/20"}`}>
-                          {statusUpdating ? "..." : STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
-                        </button>
-                      ))}
-                    </div>
+                {/* Accept / Reject — artisan only, when job is pending */}
+                {isArtisan && selected.status === "pending" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setActionModal("accept")}
+                      disabled={statusUpdating}
+                      className="px-3 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => setActionModal("reject")}
+                      disabled={statusUpdating}
+                      className="px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+                    >
+                      Decline
+                    </button>
                   </div>
+                )}
+
+                {/* Start approval — UI changes based on whether the caller already approved */}
+                {selected.status === "accepted" && (() => {
+                  const myApproved = isArtisan ? selected.artisanStartApproved : selected.clientStartApproved;
+                  const otherApproved = isArtisan ? selected.clientStartApproved : selected.artisanStartApproved;
+                  const otherLabel = isArtisan ? "client" : "artisan";
+
+                  // After I've approved but the other side hasn't — show waiting state.
+                  if (myApproved && !otherApproved) {
+                    return (
+                      <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-sm text-foreground">
+                          Waiting for the {otherLabel} to confirm start.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">Start the job</span>
+                        <span className="text-muted-foreground">Both parties must confirm</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {isArtisan
+                          ? "Confirm start once you're on site and about to begin."
+                          : "Confirm start once the artisan is on site."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className={`flex items-center gap-1.5 ${selected.clientStartApproved ? "text-success" : "text-muted-foreground"}`}>
+                          {selected.clientStartApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                          Client {selected.clientStartApproved ? "ready" : "pending"}
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${selected.artisanStartApproved ? "text-success" : "text-muted-foreground"}`}>
+                          {selected.artisanStartApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                          Artisan {selected.artisanStartApproved ? "ready" : "pending"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActionModal("approve-start")}
+                        disabled={statusUpdating}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        <Play className="w-4 h-4" strokeWidth={1} />
+                        Confirm start
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* End approval — same UI pattern as start */}
+                {selected.status === "in_progress" && (() => {
+                  const myApproved = isArtisan ? selected.artisanEndApproved : selected.clientEndApproved;
+                  const otherApproved = isArtisan ? selected.clientEndApproved : selected.artisanEndApproved;
+                  const otherLabel = isArtisan ? "client" : "artisan";
+
+                  if (myApproved && !otherApproved) {
+                    return (
+                      <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-success shrink-0" />
+                        <p className="text-sm text-foreground">
+                          Waiting for the {otherLabel} to confirm completion.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-2 p-3 rounded-xl border border-success/20 bg-success/5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">Complete the job</span>
+                        <span className="text-muted-foreground">Both parties must confirm</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {isArtisan
+                          ? "Confirm completion once the work is done and the client has signed off."
+                          : "Confirm completion once the artisan has finished and you're satisfied with the work."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className={`flex items-center gap-1.5 ${selected.clientEndApproved ? "text-success" : "text-muted-foreground"}`}>
+                          {selected.clientEndApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                          Client {selected.clientEndApproved ? "approved" : "pending"}
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${selected.artisanEndApproved ? "text-success" : "text-muted-foreground"}`}>
+                          {selected.artisanEndApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                          Artisan {selected.artisanEndApproved ? "approved" : "pending"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActionModal("approve-end")}
+                        disabled={statusUpdating}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 transition-colors"
+                      >
+                        <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
+                        Confirm completion
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Cancel — for pending or accepted */}
+                {(selected.status === "pending" || selected.status === "accepted") && (
+                  <button
+                    onClick={() => setActionModal("cancel")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" strokeWidth={1} />
+                    Cancel job
+                  </button>
                 )}
 
                 {selected.status !== "pending" && selected.status !== "cancelled" && (
@@ -579,6 +778,129 @@ export default function DashboardJobs() {
           </div>
         </div>
       )}
+
+      {/* ─── Job action confirmation modals ─── */}
+      {/* Accept (artisan) */}
+      <JobActionModal
+        open={actionModal === "accept" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={() => selected && performAction(selected._id, "accept", "Job accepted")}
+        title="Accept this job request"
+        description={
+          <>
+            By accepting, you commit to taking on this job. Use chat to confirm scope and deadlines
+            with the client before starting.
+          </>
+        }
+        icon={CheckCircle2}
+        tone="primary"
+        confirmLabel="Accept job"
+        agreementLabel={
+          <>
+            I&apos;ve discussed scope, timeline, and any prerequisites with the client and
+            we&apos;ve agreed.
+          </>
+        }
+        loading={statusUpdating}
+      />
+
+      {/* Reject (artisan) */}
+      <JobActionModal
+        open={actionModal === "reject" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={({ reason }) =>
+          selected && performAction(selected._id, "reject", "Job declined", { reason })
+        }
+        title="Decline this request"
+        description="The client will be notified. They&apos;ll see your reason."
+        icon={XCircle}
+        tone="destructive"
+        confirmLabel="Decline"
+        reasonLabel="Why are you declining?"
+        reasonPlaceholder="e.g. Fully booked this week / outside my service area / scope unclear…"
+        reasonRequired
+        loading={statusUpdating}
+      />
+
+      {/* Approve start */}
+      <JobActionModal
+        open={actionModal === "approve-start" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={() => selected && performAction(selected._id, "approve-start", "Start approved")}
+        title="Confirm start"
+        description={
+          isArtisan ? (
+            <>
+              Confirm you&apos;re <strong className="text-foreground">on site and about to start</strong>.
+              Daily billing begins as soon as both parties confirm.
+            </>
+          ) : (
+            <>
+              Confirm the artisan is <strong className="text-foreground">on site and ready to begin</strong>.
+              Daily billing begins as soon as both parties confirm.
+            </>
+          )
+        }
+        icon={Play}
+        tone="primary"
+        confirmLabel={isArtisan ? "Yes, I'm starting" : "Yes, artisan is on site"}
+        loading={statusUpdating}
+      />
+
+      {/* Approve end */}
+      <JobActionModal
+        open={actionModal === "approve-end" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={() => selected && performAction(selected._id, "approve-end", "End approved")}
+        title="Confirm completion"
+        description={
+          isArtisan ? (
+            <>
+              Confirm the work is <strong className="text-foreground">done</strong>. Once the client
+              also confirms, the final amount is locked in based on how many days the job ran.
+            </>
+          ) : (
+            <>
+              Confirm the work is <strong className="text-foreground">done and you&apos;re satisfied</strong>.
+              Once the artisan also confirms, the final amount is locked in based on how many days
+              the job ran.
+            </>
+          )
+        }
+        icon={CheckCircle2}
+        tone="success"
+        confirmLabel={isArtisan ? "Yes, work is done" : "Yes, mark complete"}
+        loading={statusUpdating}
+      />
+
+      {/* Cancel */}
+      <JobActionModal
+        open={actionModal === "cancel" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={({ reason }) =>
+          selected && performAction(selected._id, "cancel", "Job cancelled", { reason })
+        }
+        title="Cancel this job"
+        description="The other party will be notified and they&apos;ll see your reason."
+        icon={XCircle}
+        tone="destructive"
+        confirmLabel="Cancel job"
+        cancelLabel="Keep job"
+        reasonLabel="Why are you cancelling?"
+        reasonPlaceholder={
+          isArtisan
+            ? "e.g. Emergency came up / scope changed / client unresponsive…"
+            : "e.g. Plans changed / found a different artisan / scope changed…"
+        }
+        reasonRequired
+        hint={
+          <span>
+            <strong className="text-foreground">If there&apos;s a disagreement</strong>, raise a dispute
+            instead so admin can mediate. Cancelling ends the engagement entirely.
+          </span>
+        }
+        loading={statusUpdating}
+      />
     </div>
   );
 }

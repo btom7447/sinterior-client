@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight, AlertTriangle, Building2 } from "lucide-react";
+import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight, AlertTriangle, Building2, ShieldOff, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +35,9 @@ const DashboardOverview = () => {
   const [loading, setLoading] = useState(true);
   const [hasPortfolio, setHasPortfolio] = useState(true);
   const [hasBusinessInfo, setHasBusinessInfo] = useState(true);
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  // null = unknown, "none" = never submitted, otherwise the latest status string.
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -44,10 +47,17 @@ const DashboardOverview = () => {
           apiGet<{ data: { orders: RecentOrder[] } }>("/dashboard/recent-orders"),
         ];
         if (profile?.role === "artisan") {
-          fetches.push(apiGet<{ data: { portfolio?: { url: string }[] } }>("/artisans/me"));
+          fetches.push(apiGet<{ data: { artisan: { portfolio?: { url: string }[]; isVerified?: boolean } } }>("/artisans/me"));
         }
         if (profile?.role === "supplier") {
-          fetches.push(apiGet<{ data: { supplier: { businessName?: string; description?: string } } }>("/suppliers/me").catch(() => null));
+          fetches.push(apiGet<{ data: { supplier: { businessName?: string; description?: string; isVerified?: boolean } } }>("/suppliers/me").catch(() => null));
+        }
+        // Verification history (artisans + suppliers only) — for the latest-status banner.
+        const isSeller = profile?.role === "artisan" || profile?.role === "supplier";
+        if (isSeller) {
+          fetches.push(
+            apiGet<{ data: { verifications: { status: string; createdAt: string }[] } }>("/verification/my").catch(() => null)
+          );
         }
         const results = await Promise.all(fetches);
         const statsRes = results[0] as { data: { stats: Stats } };
@@ -55,13 +65,28 @@ const DashboardOverview = () => {
         setStats(statsRes.data.stats);
         setRecentOrders(ordersRes.data.orders);
         if (profile?.role === "artisan" && results[2]) {
-          const artisanRes = results[2] as { data: { portfolio?: { url: string }[] } };
-          setHasPortfolio(!!(artisanRes.data?.portfolio && artisanRes.data.portfolio.length > 0));
+          const artisanRes = results[2] as { data: { artisan: { portfolio?: { url: string }[]; isVerified?: boolean } } };
+          const a = artisanRes.data?.artisan;
+          setHasPortfolio(!!(a?.portfolio && a.portfolio.length > 0));
+          setIsVerified(!!a?.isVerified);
         }
         if (profile?.role === "supplier" && results[2]) {
-          const supplierRes = results[2] as { data: { supplier: { businessName?: string; description?: string } } } | null;
+          const supplierRes = results[2] as { data: { supplier: { businessName?: string; description?: string; isVerified?: boolean } } } | null;
           const s = supplierRes?.data?.supplier;
           setHasBusinessInfo(!!(s?.businessName && s?.description));
+          setIsVerified(!!s?.isVerified);
+        }
+        if (isSeller) {
+          const verifIdx = profile?.role === "artisan" || profile?.role === "supplier" ? 3 : 2;
+          const verifRes = results[verifIdx] as { data: { verifications: { status: string; createdAt: string }[] } } | null;
+          const list = verifRes?.data?.verifications || [];
+          if (list.length === 0) {
+            setVerificationStatus("none");
+          } else {
+            // newest first by createdAt
+            const sorted = [...list].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+            setVerificationStatus(sorted[0].status);
+          }
         }
       } catch {
         // silent — dashboard still renders
@@ -108,6 +133,87 @@ const DashboardOverview = () => {
           Here&apos;s what&apos;s happening with your account today.
         </p>
       </div>
+
+      {/* Verification banner (artisan + supplier) — surfaces the current state of their identity/business verification. */}
+      {(role === "artisan" || role === "supplier") &&
+        !loading &&
+        isVerified === false && (
+          <Link href="/dashboard/verification" className="block">
+            {(() => {
+              const isSupplier = role === "supplier";
+              const noun = isSupplier ? "business" : "identity";
+              const verb = isSupplier ? "Verify your business" : "Verify your identity";
+
+              if (verificationStatus === "pending") {
+                return (
+                  <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-4 hover:bg-amber-500/15 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 text-amber-600" strokeWidth={1.5} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Verification under review</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Admin is reviewing your {noun} verification. We&apos;ll email you with the decision.
+                      </p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-amber-600 shrink-0" strokeWidth={1.5} />
+                  </div>
+                );
+              }
+              if (verificationStatus === "rejected" || verificationStatus === "revoked") {
+                const wasRevoked = verificationStatus === "revoked";
+                return (
+                  <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-4 flex items-center gap-4 hover:bg-destructive/15 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-destructive/20 flex items-center justify-center shrink-0">
+                      <ShieldOff className="w-5 h-5 text-destructive" strokeWidth={1.5} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {wasRevoked ? "Verification revoked" : "Verification rejected"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        See the reviewer&apos;s reason and submit a new request.
+                      </p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-destructive shrink-0" strokeWidth={1.5} />
+                  </div>
+                );
+              }
+              // Default: never submitted
+              return (
+                <div className="rounded-2xl bg-muted-foreground/5 border border-dashed border-border p-4 flex items-center gap-4 hover:bg-muted-foreground/10 transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-muted-foreground/15 flex items-center justify-center shrink-0">
+                    <ShieldOff className="w-5 h-5 text-muted-foreground" strokeWidth={1.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{verb}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isSupplier
+                        ? "Submit your CAC + supporting documents. Admin reviews each request before granting the verified badge."
+                        : "Submit your government-issued ID. Admin reviews each request before granting the verified badge."}
+                    </p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0" strokeWidth={1.5} />
+                </div>
+              );
+            })()}
+          </Link>
+        )}
+
+      {/* Verified confirmation pill (subtle reassurance once verified) */}
+      {(role === "artisan" || role === "supplier") && !loading && isVerified === true && (
+        <div className="rounded-2xl bg-success/5 border border-success/20 p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4 text-success" strokeWidth={1.5} />
+          </div>
+          <p className="text-sm text-foreground">
+            <span className="font-medium">Verified.</span>{" "}
+            <span className="text-muted-foreground">
+              The verified badge appears on your public profile.
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Portfolio Banner (artisans with no portfolio) */}
       {role === "artisan" && !loading && !hasPortfolio && (

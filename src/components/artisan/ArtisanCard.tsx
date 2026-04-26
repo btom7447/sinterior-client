@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, CheckCircle2, Navigation } from "lucide-react";
+import { Star, MapPin, ShieldCheck, ShieldOff, Navigation } from "lucide-react";
 import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 
 interface ArtisanCardProps {
@@ -41,7 +41,15 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
             <div>
               <h3 className="font-display font-semibold text-foreground flex items-center gap-1.5">
                 {name}
-                <CheckCircle2 className="w-4 h-4 text-success shrink-0" strokeWidth={1.5} />
+                {artisan.isVerified ? (
+                  <span title="Verified" className="inline-flex items-center">
+                    <ShieldCheck className="w-4 h-4 text-success shrink-0" strokeWidth={1.5} />
+                  </span>
+                ) : (
+                  <span title="Unverified" className="inline-flex items-center">
+                    <ShieldOff className="w-4 h-4 text-muted-foreground shrink-0" strokeWidth={1.5} />
+                  </span>
+                )}
               </h3>
               <p className="text-primary font-medium text-sm">{artisan.skill}</p>
             </div>

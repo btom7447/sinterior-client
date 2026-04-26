@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import NotificationBell from "@/components/dashboard/NotificationBell";
+import { ActiveHiresIndicator } from "@/components/dashboard/ActiveHiresIndicator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -166,6 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-3">
+            <ActiveHiresIndicator />
             <button
               onClick={() => router.push("/dashboard/chat")}
               className="relative p-2 text-muted-foreground hover:text-primary transition-colors"

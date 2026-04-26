@@ -75,6 +75,7 @@ export interface ApiArtisan {
   pricePerDay: number | null;
   experienceYears?: number;
   isAvailable: boolean;
+  isVerified?: boolean;
   rating: number;
   reviewCount: number;
   distanceKm?: number;

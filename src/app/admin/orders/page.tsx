@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet } from "@/lib/apiClient";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MetricStrip, type Metric } from "@/components/admin/MetricStrip";
 import { toast } from "sonner";
 
 interface OrderRow {
@@ -30,12 +32,28 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-500/10 text-red-600",
 };
 
+interface OrderPageStats {
+  total: number;
+  pending: number;
+  shipped: number;
+  delivered: number;
+  cancelled: number;
+  revenueThisMonth: number;
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, totalPages: 1, totalResults: 0 });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<OrderPageStats | null>(null);
+
+  useEffect(() => {
+    apiGet<{ data: { stats: OrderPageStats } }>("/admin/page-stats?page=orders")
+      .then((r) => setStats(r.data.stats))
+      .catch(() => {});
+  }, []);
 
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
@@ -57,12 +75,25 @@ export default function AdminOrdersPage() {
     fetchOrders();
   }, [fetchOrders]);
 
+  const metrics: Metric[] | null = stats
+    ? [
+        { label: "Total", value: stats.total.toLocaleString("en-NG") },
+        { label: "Pending", value: stats.pending.toLocaleString("en-NG"), tone: stats.pending > 0 ? "warning" : "default" },
+        { label: "Shipped", value: stats.shipped.toLocaleString("en-NG"), tone: "info" },
+        { label: "Delivered", value: stats.delivered.toLocaleString("en-NG"), tone: "success" },
+        { label: "Cancelled", value: stats.cancelled.toLocaleString("en-NG") },
+        { label: "Revenue This Month", value: `₦${stats.revenueThisMonth.toLocaleString("en-NG")}`, tone: "success" },
+      ]
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Order Management</h1>
         <p className="text-sm text-muted-foreground mt-1">View and manage all platform orders</p>
       </div>
+
+      <MetricStrip metrics={metrics} loading={!stats} columns={6} />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -105,9 +136,16 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">Loading...</td>
-                </tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="p-4"><Skeleton className="h-3 w-16" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-28" /></td>
+                    <td className="p-4 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="p-4"><Skeleton className="h-5 w-20 rounded-lg" /></td>
+                    <td className="p-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+                  </tr>
+                ))
               ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-muted-foreground">No orders found</td>

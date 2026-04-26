@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/ErrorState";
 import {
   ArrowLeft, Star, MapPin, ShoppingCart, Heart, Share2,
   Truck, MessageCircle, ChevronRight, Minus, Plus, Phone, Verified,
@@ -96,10 +97,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   if (!product) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-          <p className="text-muted-foreground">Product not found</p>
-          <Button variant="outline" onClick={() => router.push("/products")}>Back to Products</Button>
-        </div>
+        <ErrorState
+          title="Couldn't load this product"
+          description="The product may have been removed, or we hit a temporary issue fetching it."
+          onRetry={() => window.location.reload()}
+          secondaryLabel="Browse all products"
+          onSecondary={() => router.push("/products")}
+        />
       </AppLayout>
     );
   }

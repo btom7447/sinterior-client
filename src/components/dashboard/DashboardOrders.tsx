@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { JobActionModal } from "@/components/dashboard/JobActionModal";
 import { toast } from "sonner";
 
 interface OrderItem {
@@ -45,6 +46,8 @@ interface Order {
   paymentMethod?: string;
   status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
   paymentStatus: "pending" | "paid" | "failed";
+  cancellationReason?: string;
+  cancelledBy?: "buyer" | "supplier";
   createdAt: string;
   updatedAt: string;
 }
@@ -64,21 +67,21 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelled", icon: XCircle, color: "bg-destructive/10 text-destructive" },
 };
 
-const SUPPLIER_TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["shipped", "cancelled"],
-  shipped: ["delivered"],
-};
-
-const BUYER_TRANSITIONS: Record<string, string[]> = {
-  pending: ["cancelled"],
-  confirmed: ["cancelled"],
-};
 
 export default function DashboardOrders() {
   const { profile } = useAuth();
   const router = useRouter();
-  const isSupplier = profile?.role === "supplier";
+  const searchParams = useSearchParams();
+
+  // ?as=buyer|seller — explicit override. Otherwise default by role.
+  const explicitAs = searchParams?.get("as");
+  const view: "buyer" | "seller" =
+    explicitAs === "buyer" || explicitAs === "seller"
+      ? explicitAs
+      : profile?.role === "supplier"
+      ? "seller"
+      : "buyer";
+  const isSupplier = view === "seller";
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, pages: 0 });
@@ -96,10 +99,19 @@ export default function DashboardOrders() {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
+  // Action modal — replaces generic transition buttons
+  const [actionModal, setActionModal] = useState<
+    | null
+    | "confirm"
+    | "ship"
+    | "deliver"
+    | "cancel"
+  >(null);
+
   const fetchOrders = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "10" });
+      const params = new URLSearchParams({ page: String(page), limit: "10", as: view });
       if (filter !== "all") params.set("status", filter);
       const data = await apiGet<{ data: Order[]; pagination: Pagination }>(`/orders?${params}`);
       setOrders(data.data || []);
@@ -109,21 +121,40 @@ export default function DashboardOrders() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, view]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+  const handleStatusUpdate = async (
+    orderId: string,
+    newStatus: string,
+    reason?: string
+  ) => {
     setStatusUpdating(true);
     try {
-      await apiPatch(`/orders/${orderId}/status`, { status: newStatus });
-      toast.success(`Order ${newStatus}`);
+      const body: Record<string, unknown> = { status: newStatus };
+      if (newStatus === "cancelled" && reason) body.reason = reason;
+      await apiPatch(`/orders/${orderId}/status`, body);
+      toast.success(
+        newStatus === "confirmed"
+          ? "Order confirmed"
+          : newStatus === "shipped"
+          ? "Marked as shipped"
+          : newStatus === "delivered"
+          ? "Marked as delivered"
+          : newStatus === "cancelled"
+          ? "Order cancelled"
+          : `Order ${newStatus}`
+      );
       fetchOrders(pagination.page);
       if (selectedOrder?._id === orderId) {
-        setSelectedOrder((prev) => prev ? { ...prev, status: newStatus as Order["status"] } : null);
+        setSelectedOrder((prev) =>
+          prev ? { ...prev, status: newStatus as Order["status"] } : null
+        );
       }
+      setActionModal(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
     } finally {
@@ -183,7 +214,6 @@ export default function DashboardOrders() {
     }
   };
 
-  const transitions = isSupplier ? SUPPLIER_TRANSITIONS : BUYER_TRANSITIONS;
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
@@ -212,10 +242,12 @@ export default function DashboardOrders() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          {isSupplier ? "Orders" : "My Orders"}
+          {isSupplier ? "Orders Received" : "My Purchases"}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {isSupplier ? "Manage incoming orders" : "Track your purchases"}
+          {isSupplier
+            ? "Orders from buyers — manage fulfilment from here."
+            : "Products you&apos;ve bought from suppliers — track delivery and leave reviews."}
         </p>
       </div>
 
@@ -384,6 +416,21 @@ export default function DashboardOrders() {
                     <span className="text-foreground text-right max-w-[60%]">{selectedOrder.note}</span>
                   </div>
                 )}
+                {selectedOrder.status === "cancelled" && selectedOrder.cancellationReason && (
+                  <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                    <p className="text-xs uppercase tracking-wider text-destructive font-medium mb-1">
+                      Cancelled by{" "}
+                      {selectedOrder.cancelledBy === "buyer"
+                        ? "buyer"
+                        : selectedOrder.cancelledBy === "supplier"
+                        ? "supplier"
+                        : "—"}
+                    </p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">
+                      {selectedOrder.cancellationReason}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -413,29 +460,52 @@ export default function DashboardOrders() {
                   </button>
                 )}
 
-                {/* Status transitions */}
-                {transitions[selectedOrder.status] && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {isSupplier ? "Update Status" : "Actions"}
-                    </p>
-                    <div className="flex gap-2">
-                      {transitions[selectedOrder.status].map((next) => (
-                        <button
-                          key={next}
-                          onClick={() => handleStatusUpdate(selectedOrder._id, next)}
-                          disabled={statusUpdating}
-                          className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                            next === "cancelled"
-                              ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                              : "bg-primary/10 text-primary hover:bg-primary/20"
-                          }`}
-                        >
-                          {statusUpdating ? "..." : STATUS_CONFIG[next as keyof typeof STATUS_CONFIG].label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                {/* Supplier — Confirm a pending order */}
+                {isSupplier && selectedOrder.status === "pending" && (
+                  <button
+                    onClick={() => setActionModal("confirm")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
+                    Confirm order
+                  </button>
+                )}
+
+                {/* Supplier — Ship a confirmed order */}
+                {isSupplier && selectedOrder.status === "confirmed" && (
+                  <button
+                    onClick={() => setActionModal("ship")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                  >
+                    <Truck className="w-4 h-4" strokeWidth={1} />
+                    Mark as shipped
+                  </button>
+                )}
+
+                {/* Supplier — Mark a shipped order delivered */}
+                {isSupplier && selectedOrder.status === "shipped" && (
+                  <button
+                    onClick={() => setActionModal("deliver")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
+                    Mark as delivered
+                  </button>
+                )}
+
+                {/* Cancel — buyers can cancel pending/confirmed; suppliers can cancel pending/confirmed too */}
+                {(selectedOrder.status === "pending" || selectedOrder.status === "confirmed") && (
+                  <button
+                    onClick={() => setActionModal("cancel")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" strokeWidth={1} />
+                    Cancel order
+                  </button>
                 )}
 
                 {/* Dispute button */}
@@ -568,6 +638,99 @@ export default function DashboardOrders() {
           </div>
         </div>
       )}
+
+      {/* ─── Order action confirmation modals ─── */}
+      {/* Confirm order (supplier) */}
+      <JobActionModal
+        open={actionModal === "confirm" && !!selectedOrder}
+        onClose={() => setActionModal(null)}
+        onConfirm={() =>
+          selectedOrder && handleStatusUpdate(selectedOrder._id, "confirmed")
+        }
+        title="Confirm this order"
+        description={
+          <>
+            Confirm you have <strong className="text-foreground">all items in stock</strong> and
+            can fulfill this order. The buyer will be notified and the order moves to confirmed.
+          </>
+        }
+        icon={CheckCircle2}
+        tone="primary"
+        confirmLabel="Yes, confirm order"
+        agreementLabel={
+          <>I have all items available and will ship within the agreed time.</>
+        }
+        loading={statusUpdating}
+      />
+
+      {/* Ship order (supplier) */}
+      <JobActionModal
+        open={actionModal === "ship" && !!selectedOrder}
+        onClose={() => setActionModal(null)}
+        onConfirm={() =>
+          selectedOrder && handleStatusUpdate(selectedOrder._id, "shipped")
+        }
+        title="Mark as shipped"
+        description={
+          <>
+            Confirm the order has been <strong className="text-foreground">handed off to the courier</strong>
+            {" "}or is in transit to the buyer. They&apos;ll be notified to expect delivery.
+          </>
+        }
+        icon={Truck}
+        tone="primary"
+        confirmLabel="Yes, it's shipped"
+        loading={statusUpdating}
+      />
+
+      {/* Deliver order (supplier) */}
+      <JobActionModal
+        open={actionModal === "deliver" && !!selectedOrder}
+        onClose={() => setActionModal(null)}
+        onConfirm={() =>
+          selectedOrder && handleStatusUpdate(selectedOrder._id, "delivered")
+        }
+        title="Mark as delivered"
+        description={
+          <>
+            Confirm the buyer has <strong className="text-foreground">received and accepted</strong>
+            {" "}the order. Only mark this once you have proof of delivery.
+          </>
+        }
+        icon={CheckCircle2}
+        tone="success"
+        confirmLabel="Yes, delivered"
+        loading={statusUpdating}
+      />
+
+      {/* Cancel order (either party) */}
+      <JobActionModal
+        open={actionModal === "cancel" && !!selectedOrder}
+        onClose={() => setActionModal(null)}
+        onConfirm={({ reason }) =>
+          selectedOrder && handleStatusUpdate(selectedOrder._id, "cancelled", reason)
+        }
+        title="Cancel this order"
+        description="The other party will be notified and they'll see your reason."
+        icon={XCircle}
+        tone="destructive"
+        confirmLabel="Cancel order"
+        cancelLabel="Keep order"
+        reasonLabel="Why are you cancelling?"
+        reasonPlaceholder={
+          isSupplier
+            ? "e.g. Item out of stock / can't fulfill in agreed timeframe / buyer unresponsive…"
+            : "e.g. Found a better price / no longer needed / wrong item ordered…"
+        }
+        reasonRequired
+        hint={
+          <span>
+            <strong className="text-foreground">If there&apos;s a problem with the order</strong>,
+            consider raising a dispute instead so admin can mediate.
+          </span>
+        }
+        loading={statusUpdating}
+      />
     </div>
   );
 }

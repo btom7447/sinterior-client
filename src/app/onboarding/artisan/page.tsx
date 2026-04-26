@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NairaInput } from "@/components/ui/NairaInput";
+import LocationPicker from "@/components/location/LocationPicker";
 import { toast } from "sonner";
 import { apiPatch, apiUpload } from "@/lib/apiClient";
 
@@ -79,29 +81,32 @@ function PortfolioStep({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         {items.map((item) => (
-          <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-border">
-            <img src={item.preview} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+          <div key={item.id} className="group">
+            <div className="relative aspect-square rounded-2xl overflow-hidden border border-border">
+              <img src={item.preview} alt="" className="w-full h-full object-cover" />
+              <button
+                onClick={() => remove(item.id)}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <label className="block mt-2">
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Caption</span>
               <input
-                className="w-full bg-transparent text-white text-xs placeholder:text-white/60 focus:outline-none"
-                placeholder="Add caption…"
+                className="mt-0.5 w-full text-sm bg-transparent border-b border-border focus:border-primary focus:outline-none placeholder:text-muted-foreground/60 py-1"
+                placeholder="e.g. 3-bedroom finish, Lekki"
                 value={item.caption}
                 onChange={(e) => updateCaption(item.id, e.target.value)}
               />
-            </div>
-            <button
-              onClick={() => remove(item.id)}
-              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <X className="w-3 h-3" />
-            </button>
+            </label>
           </div>
         ))}
 
         {items.length < 6 && (
           <button
             onClick={() => fileRef.current?.click()}
-            className="aspect-square rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-colors"
+            className="aspect-square rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-colors self-start"
           >
             <Upload strokeWidth={1} className="w-6 h-6 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">Add photo</span>
@@ -280,74 +285,18 @@ function AvailabilityStep({
 function ServiceDetailsStep({
   radius, setRadius, tools, setTools, extraSkills, setExtraSkills,
   latitude, longitude, setLatitude, setLongitude,
+  pricePerDay, setPricePerDay, address, setAddress,
 }: {
   radius: number; setRadius: (v: number) => void;
   tools: string[]; setTools: (v: string[]) => void;
   extraSkills: string[]; setExtraSkills: (v: string[]) => void;
   latitude: number | null; longitude: number | null;
   setLatitude: (v: number | null) => void; setLongitude: (v: number | null) => void;
+  pricePerDay: number | null; setPricePerDay: (v: number | null) => void;
+  address: string; setAddress: (v: string) => void;
 }) {
   const [toolInput, setToolInput] = useState("");
   const [skillInput, setSkillInput] = useState("");
-  const [locLoading, setLocLoading] = useState(false);
-  const [locError, setLocError] = useState<string | null>(null);
-  const [locAccuracy, setLocAccuracy] = useState<number | null>(null);
-  const watchRef = useRef<number | null>(null);
-
-  // Clean up watch on unmount
-  useEffect(() => {
-    return () => {
-      if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
-    };
-  }, []);
-
-  const captureLocation = () => {
-    if (!navigator.geolocation) {
-      setLocError("Geolocation not supported by your browser.");
-      return;
-    }
-    setLocLoading(true);
-    setLocError(null);
-
-    if (watchRef.current != null) {
-      navigator.geolocation.clearWatch(watchRef.current);
-    }
-
-    let settled = false;
-
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
-        setLatitude(lat);
-        setLongitude(lng);
-        setLocAccuracy(acc);
-
-        // Stop once GPS locks on with < 100m accuracy
-        if (acc < 100 && !settled) {
-          settled = true;
-          if (watchRef.current != null) {
-            navigator.geolocation.clearWatch(watchRef.current);
-            watchRef.current = null;
-          }
-          setLocLoading(false);
-        }
-      },
-      () => {
-        setLocError("Could not get your location. Please try again.");
-        setLocLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-
-    // Safety: stop after 30s
-    setTimeout(() => {
-      if (watchRef.current != null) {
-        navigator.geolocation.clearWatch(watchRef.current);
-        watchRef.current = null;
-        setLocLoading(false);
-      }
-    }, 30000);
-  };
 
   const addTool = (value: string) => {
     const trimmed = value.trim();
@@ -366,40 +315,40 @@ function ServiceDetailsStep({
       <h2 className="font-display text-2xl font-bold text-foreground mb-1">Service details</h2>
       <p className="text-muted-foreground mb-6">Help clients know how far you travel and what equipment you bring.</p>
 
-      {/* Location capture */}
-      <div className="mb-6 p-4 rounded-2xl border border-border bg-secondary/30">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <MapPin strokeWidth={1} className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">Your location</p>
-              {latitude && longitude ? (
-                <p className="text-xs text-success mt-0.5">
-                  Captured — {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                  {locAccuracy != null && (
-                    <span className="text-muted-foreground ml-1">±{Math.round(locAccuracy)}m</span>
-                  )}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Used to show your radius on the map for clients
-                </p>
-              )}
-              {locLoading && latitude && (
-                <p className="text-xs text-muted-foreground mt-0.5">Refining accuracy…</p>
-              )}
-              {locError && <p className="text-xs text-destructive mt-0.5">{locError}</p>}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={captureLocation}
-            disabled={locLoading}
-            className="shrink-0 text-xs font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-          >
-            {locLoading ? "Getting…" : latitude ? "Update" : "Use my location"}
-          </button>
+      {/* Daily rate */}
+      <div className="mb-6">
+        <p className="text-sm font-semibold text-foreground mb-2">Your daily rate</p>
+        <p className="text-xs text-muted-foreground mb-2">
+          What clients pay you per day. We charge this for every day the job is in progress.
+        </p>
+        <NairaInput
+          value={pricePerDay}
+          onChange={setPricePerDay}
+          placeholder="e.g. 25,000"
+          className="rounded-xl"
+        />
+      </div>
+
+      {/* Location picker */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin strokeWidth={1} className="w-4 h-4 text-primary" />
+          <p className="text-sm font-semibold text-foreground">Your exact location</p>
         </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Search your address, drop a pin with GPS, then drag for accuracy. Clients see this as the
+          centre of your service area.
+        </p>
+        <LocationPicker
+          latitude={latitude}
+          longitude={longitude}
+          address={address}
+          onChange={({ latitude: la, longitude: lo, address: a }) => {
+            setLatitude(la);
+            setLongitude(lo);
+            setAddress(a);
+          }}
+        />
       </div>
 
       {/* Radius slider */}
@@ -425,7 +374,10 @@ function ServiceDetailsStep({
 
       {/* Tools */}
       <div className="mb-6">
-        <p className="text-sm font-semibold text-foreground mb-3">Tools & equipment you own</p>
+        <p className="text-sm font-semibold text-foreground mb-3">
+          Tools & equipment you own
+          <span className="ml-2 text-xs font-normal text-muted-foreground">(optional)</span>
+        </p>
         <div className="flex flex-wrap gap-2 mb-3">
           {tools.map((t) => (
             <span key={t} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -500,6 +452,8 @@ export default function ArtisanOnboardingPage() {
   const [extraSkills, setExtraSkills] = useState<string[]>([]);
   const [artisanLat, setArtisanLat] = useState<number | null>(null);
   const [artisanLng, setArtisanLng] = useState<number | null>(null);
+  const [pricePerDay, setPricePerDay] = useState<number | null>(null);
+  const [address, setAddress] = useState("");
 
   const current = steps[step - 1];
   const isLast = step === steps.length;
@@ -543,6 +497,8 @@ export default function ArtisanOnboardingPage() {
           serviceRadiusKm: radius,
           tools,
           additionalSkills: extraSkills,
+          ...(pricePerDay != null ? { pricePerDay } : {}),
+          ...(address ? { address } : {}),
         });
 
         // 4. Update location separately if captured
@@ -627,6 +583,8 @@ export default function ArtisanOnboardingPage() {
                 extraSkills={extraSkills} setExtraSkills={setExtraSkills}
                 latitude={artisanLat} longitude={artisanLng}
                 setLatitude={setArtisanLat} setLongitude={setArtisanLng}
+                pricePerDay={pricePerDay} setPricePerDay={setPricePerDay}
+                address={address} setAddress={setAddress}
               />
             )}
           </div>

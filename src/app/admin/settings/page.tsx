@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPatch } from "@/lib/apiClient";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 interface PlatformSettings {
@@ -60,8 +61,22 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-72 mt-2" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <Skeleton className="h-5 w-32" />
+            {Array.from({ length: 3 }).map((__, j) => (
+              <div key={j} className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     );
   }

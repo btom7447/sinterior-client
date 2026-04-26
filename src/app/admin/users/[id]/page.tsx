@@ -5,6 +5,7 @@ import { apiGet, apiPatch } from "@/lib/apiClient";
 import { ArrowLeft, Ban, CheckCircle, Mail, MessageSquare, Shield, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 interface UserDetail {
@@ -71,7 +72,38 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-28" />
+        <div className="bg-card border border-border rounded-2xl p-6 flex items-start gap-4">
+          <Skeleton className="w-16 h-16 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-56" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-28 rounded-xl" />
+            <Skeleton className="h-9 w-20 rounded-xl" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-2xl p-4 space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-7 w-12" />
+            </div>
+          ))}
+        </div>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="bg-card border border-border rounded-2xl p-6 space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (!data) {

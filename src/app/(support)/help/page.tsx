@@ -1,115 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
 import { Search, ChevronRight, ChevronDown } from "lucide-react";
+import { apiGet } from "@/lib/apiClient";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const categories = [
-  {
-    id: "getting-started",
-    title: "Getting Started",
-    emoji: "🚀",
-    articles: [
-      "How to create a Sintherior account",
-      "Choosing the right account type (Client, Artisan, Supplier)",
-      "Completing your profile",
-      "Understanding the verification process",
-    ],
-  },
-  {
-    id: "for-clients",
-    title: "For Clients",
-    emoji: "🏠",
-    articles: [
-      "How to find and hire an artisan",
-      "How to browse and purchase products",
-      "Tracking your orders",
-      "Leaving a review",
-      "Requesting a refund",
-    ],
-  },
-  {
-    id: "for-artisans",
-    title: "For Artisans",
-    emoji: "🔧",
-    articles: [
-      "Getting verified as an artisan",
-      "Setting your rates and availability",
-      "Managing client requests",
-      "Getting paid on Sintherior",
-      "Upgrading your subscription",
-    ],
-  },
-  {
-    id: "for-suppliers",
-    title: "For Suppliers",
-    emoji: "📦",
-    articles: [
-      "Listing your products",
-      "Managing inventory",
-      "Processing orders",
-      "Handling returns",
-      "Becoming a featured supplier",
-    ],
-  },
-  {
-    id: "payments",
-    title: "Payments & Billing",
-    emoji: "💳",
-    articles: [
-      "Accepted payment methods",
-      "How payouts work for artisans",
-      "Subscription plans and pricing",
-      "Requesting a billing statement",
-      "VAT and receipts",
-    ],
-  },
-  {
-    id: "account",
-    title: "Account & Security",
-    emoji: "🔒",
-    articles: [
-      "Changing your password",
-      "Two-factor authentication",
-      "Updating your email address",
-      "Deactivating your account",
-      "Reporting a suspicious account",
-    ],
-  },
-];
+interface HelpArticle {
+  _id: string;
+  slug: string;
+  title: string;
+  category?: string;
+  emoji?: string;
+  excerpt?: string;
+  order?: number;
+}
 
-const faqs = [
-  {
-    question: "Is Sintherior free to use?",
-    answer:
-      "Clients can browse and hire for free. Artisans and suppliers have a free tier with limited features. Paid subscriptions unlock priority placement, analytics, and more.",
-  },
-  {
-    question: "How does Sintherior verify artisans?",
-    answer:
-      "We verify government-issued ID, check trade certifications where applicable, collect a phone number, and in some cases conduct in-person or video inspections. Verified artisans display a green checkmark on their profile.",
-  },
-  {
-    question: "What happens if I'm unsatisfied with an artisan's work?",
-    answer:
-      "Contact us within 7 days of project completion. We'll mediate the dispute and, where warranted, arrange for the work to be redone or issue a partial refund.",
-  },
-  {
-    question: "Can I pay through Sintherior or only directly to artisans?",
-    answer:
-      "You can pay directly through the platform (card, bank transfer, or USSD). Sintherior holds the funds in escrow and releases them when you confirm the work is done.",
-  },
-  {
-    question: "Are suppliers' products genuine?",
-    answer:
-      "Suppliers submit business registration documents, and we periodically spot-check product quality. Listings that receive multiple quality complaints are removed.",
-  },
-];
+interface CategoryGroup {
+  category: string;
+  emoji: string;
+  articles: HelpArticle[];
+}
+
+const fallbackEmoji: Record<string, string> = {
+  "Getting Started": "🚀",
+  "For Clients": "🏠",
+  "For Artisans": "🔧",
+  "For Suppliers": "📦",
+  "Payments & Billing": "💳",
+  "Account & Security": "🔒",
+};
 
 export default function HelpPage() {
+  const [articles, setArticles] = useState<HelpArticle[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [openBody, setOpenBody] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    apiGet<{ data: { articles: HelpArticle[] } }>("/help")
+      .then((r) => setArticles(r.data.articles))
+      .catch(() => setArticles([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return articles;
+    const q = search.toLowerCase();
+    return articles.filter(
+      (a) =>
+        a.title.toLowerCase().includes(q) ||
+        (a.excerpt || "").toLowerCase().includes(q) ||
+        (a.category || "").toLowerCase().includes(q)
+    );
+  }, [articles, search]);
+
+  const grouped: CategoryGroup[] = useMemo(() => {
+    const map = new Map<string, CategoryGroup>();
+    for (const a of filtered) {
+      const cat = a.category || "Other";
+      if (!map.has(cat)) {
+        map.set(cat, {
+          category: cat,
+          emoji: a.emoji || fallbackEmoji[cat] || "📘",
+          articles: [],
+        });
+      }
+      map.get(cat)!.articles.push(a);
+    }
+    return Array.from(map.values()).map((g) => ({
+      ...g,
+      articles: g.articles.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    }));
+  }, [filtered]);
+
+  const toggle = async (slug: string) => {
+    if (openSlug === slug) {
+      setOpenSlug(null);
+      return;
+    }
+    setOpenSlug(slug);
+    if (!openBody[slug]) {
+      try {
+        const res = await apiGet<{ data: { article: { body: string } } }>(`/help/${slug}`);
+        setOpenBody((prev) => ({ ...prev, [slug]: res.data.article.body }));
+      } catch {
+        setOpenBody((prev) => ({ ...prev, [slug]: "Could not load this article." }));
+      }
+    }
+  };
 
   return (
     <AppLayout>
@@ -121,7 +102,10 @@ export default function HelpPage() {
             How can we <span className="gradient-text">help you?</span>
           </h1>
           <div className="relative">
-            <Search strokeWidth={1} className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search
+              strokeWidth={1}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground"
+            />
             <input
               type="text"
               placeholder="Search for answers…"
@@ -133,65 +117,79 @@ export default function HelpPage() {
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="section-padding border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="font-display text-2xl font-bold text-foreground mb-8">Browse by topic</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.map((cat) => (
-              <div key={cat.id} className="card-elevated p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl">{cat.emoji}</span>
-                  <h3 className="font-display font-semibold text-foreground">{cat.title}</h3>
-                </div>
-                <ul className="space-y-2">
-                  {cat.articles.map((article) => (
-                    <li key={article}>
-                      <Link
-                        href="#"
-                        className="flex items-center justify-between text-sm text-muted-foreground hover:text-primary transition-colors py-1 group"
-                      >
-                        <span>{article}</span>
-                        <ChevronRight strokeWidth={1} className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQs */}
+      {/* Articles */}
       <section className="section-padding">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="font-display text-2xl font-bold text-foreground mb-8">Frequently asked questions</h2>
-          <div className="flex flex-col gap-3">
-            {faqs.map((faq, i) => (
-              <div key={i} className="border border-border rounded-2xl overflow-hidden">
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left"
-                >
-                  <span className="font-medium text-foreground pr-4">{faq.question}</span>
-                  <ChevronDown
-                    strokeWidth={1}
-                    className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {openFaq === i && (
-                  <div className="px-5 pb-5 text-sm text-muted-foreground leading-relaxed border-t border-border pt-4">
-                    {faq.answer}
+        <div className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="card-elevated p-5 space-y-3">
+                  <Skeleton className="h-6 w-32" />
+                  {Array.from({ length: 3 }).map((__, j) => (
+                    <Skeleton key={j} className="h-4 w-full" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : grouped.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              {search.trim() ? "No articles match your search." : "No help articles yet."}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {grouped.map((group) => (
+                <div key={group.category} className="card-elevated p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl">{group.emoji}</span>
+                    <h3 className="font-display font-semibold text-foreground">
+                      {group.category}
+                    </h3>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <ul className="space-y-1">
+                    {group.articles.map((article) => (
+                      <li key={article._id}>
+                        <button
+                          onClick={() => toggle(article.slug)}
+                          className="w-full flex items-center justify-between text-left text-sm text-muted-foreground hover:text-primary transition-colors py-2 group"
+                        >
+                          <span className="pr-3">{article.title}</span>
+                          {openSlug === article.slug ? (
+                            <ChevronDown
+                              strokeWidth={1}
+                              className="w-4 h-4 shrink-0 text-primary"
+                            />
+                          ) : (
+                            <ChevronRight
+                              strokeWidth={1}
+                              className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            />
+                          )}
+                        </button>
+                        {openSlug === article.slug && (
+                          <div className="text-sm text-foreground leading-relaxed py-2 pl-1 pr-2 whitespace-pre-wrap border-l-2 border-primary/30 ml-1 mt-1">
+                            {openBody[article.slug] ? (
+                              openBody[article.slug]
+                                .replace(/^#+\s*/gm, "") // strip markdown headers for inline render
+                                .trim()
+                            ) : (
+                              <span className="text-muted-foreground">Loading…</span>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div className="mt-12 text-center p-8 rounded-2xl bg-primary/5 border border-primary/10">
+          {/* Contact CTA */}
+          <div className="mt-12 text-center p-8 rounded-2xl bg-primary/5 border border-primary/10 max-w-2xl mx-auto">
             <p className="font-semibold text-foreground mb-1">Still need help?</p>
-            <p className="text-sm text-muted-foreground mb-4">Our support team is available Monday–Friday, 8 am–6 pm WAT.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Our support team is available Monday–Friday, 8 am–6 pm WAT.
+            </p>
             <Link
               href="/contact"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"

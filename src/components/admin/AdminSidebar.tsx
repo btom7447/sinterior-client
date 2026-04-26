@@ -14,6 +14,8 @@ import {
   Scale,
   LogOut,
   Newspaper,
+  HelpCircle,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,6 +45,8 @@ const menuItems = [
   { title: "Disputes", url: "/admin/disputes", icon: Scale },
   { title: "Blog", url: "/admin/blog", icon: Newspaper },
   { title: "Careers", url: "/admin/careers", icon: Briefcase },
+  { title: "Help", url: "/admin/help", icon: HelpCircle },
+  { title: "Feed", url: "/admin/feed", icon: Sparkles },
   { title: "Chat", url: "/admin/chat", icon: MessageCircle },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "Settings", url: "/admin/settings", icon: Settings },
