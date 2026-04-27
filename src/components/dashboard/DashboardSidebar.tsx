@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Truck,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -96,6 +97,7 @@ const menuGroups: Record<string, MenuGroup[]> = {
       items: [
         { title: "Professional Profile", url: "/dashboard/artisan-profile", icon: Wrench },
         { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
+        { title: "Wallet", url: "/dashboard/wallet", icon: Wallet },
       ],
     },
     marketplaceGroup,
@@ -119,6 +121,7 @@ const menuGroups: Record<string, MenuGroup[]> = {
       items: [
         { title: "Business", url: "/dashboard/business", icon: Building2 },
         { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
+        { title: "Wallet", url: "/dashboard/wallet", icon: Wallet },
       ],
     },
     marketplaceGroup,

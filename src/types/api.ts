@@ -67,6 +67,7 @@ export interface ApiArtisan {
     city?: string;
     state?: string;
     bio?: string;
+    isSuspended?: boolean;
   };
   skill: string;
   skillCategory: string;

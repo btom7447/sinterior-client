@@ -13,7 +13,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import {
   ArrowLeft, MapPin, Star, MessageCircle, ShieldCheck, ShieldOff,
   Package, Truck, Shield, Building2, Clock, Calendar,
-  ChevronRight, ShoppingCart, Tag,
+  ChevronRight, ShoppingCart, Tag, Ban,
 } from "lucide-react";
 
 interface SupplierProfile {
@@ -25,6 +25,7 @@ interface SupplierProfile {
   phone?: string;
   bio?: string;
   memberSince?: string;
+  isSuspended?: boolean;
 }
 
 interface CourierInfo {
@@ -266,8 +267,21 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
             </p>
           )}
 
+          {/* Suspended notice — overrides verification banners. New orders blocked at API. */}
+          {profile.isSuspended && (
+            <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-5 flex items-start gap-3">
+              <Ban strokeWidth={1.5} className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-foreground">Currently unavailable</p>
+                <p className="text-muted-foreground mt-1">
+                  This seller can&apos;t accept new orders right now. You can still browse listings, but checkout is paused.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Unverified empty-state note — mirrors the dashed border pattern */}
-          {business && !business.isVerified && (
+          {!profile.isSuspended && business && !business.isVerified && (
             <div className="border border-dashed border-border rounded-2xl p-5 flex items-start gap-3">
               <ShieldOff strokeWidth={1.5} className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
               <div className="text-sm text-muted-foreground">
@@ -308,13 +322,28 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
             )}
           </div>
 
-          {/* CTA */}
-          <Button
-            className="w-full rounded-xl gap-2"
-            onClick={() => router.push(`/dashboard/chat?recipientId=${profile._id}&recipientName=${encodeURIComponent(profile.fullName)}`)}
-          >
-            <MessageCircle strokeWidth={1} className="w-4 h-4" /> Message Seller
-          </Button>
+          {/* CTA — when suspended, swap message-seller for browse-other-sellers */}
+          {profile.isSuspended ? (
+            <div className="rounded-2xl border border-border bg-card p-6 flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Ban strokeWidth={1} className="w-7 h-7 text-destructive" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Currently unavailable</p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                This seller isn&apos;t accepting new orders. Browse other suppliers to find what you need.
+              </p>
+              <Button variant="outline" className="rounded-xl" onClick={() => router.push("/products")}>
+                Browse other sellers
+              </Button>
+            </div>
+          ) : (
+            <Button
+              className="w-full rounded-xl gap-2"
+              onClick={() => router.push(`/dashboard/chat?recipientId=${profile._id}&recipientName=${encodeURIComponent(profile.fullName)}`)}
+            >
+              <MessageCircle strokeWidth={1} className="w-4 h-4" /> Message Seller
+            </Button>
+          )}
 
           {/* Tabs */}
           <div className="flex border-b border-border">
@@ -338,6 +367,17 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
           {/* ─── Products Tab ─── */}
           {activeTab === "products" && (
             <div className="space-y-4">
+              {profile.isSuspended && products.length > 0 && (
+                <div className="rounded-xl bg-warning/10 border border-warning/30 p-3 flex items-start gap-2.5">
+                  <Ban strokeWidth={1.5} className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                  <p className="text-xs text-foreground">
+                    <span className="font-medium">Orders paused.</span>{" "}
+                    <span className="text-muted-foreground">
+                      Products stay listed but checkout is blocked while this seller is unavailable.
+                    </span>
+                  </p>
+                </div>
+              )}
               {topProducts.length > 0 && products.length > 6 && (
                 <div>
                   <h3 className="text-sm font-bold text-foreground mb-3">Top Rated</h3>

@@ -13,7 +13,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import {
   Star, MapPin, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
-  Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle,
+  Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle, Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +48,10 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
       return;
     }
     if (!artisan?.profileId?._id) return;
+    if (artisan.profileId.isSuspended) {
+      toast.error("This artisan is currently unavailable.");
+      return;
+    }
     if (bookingType === "scheduled" && !scheduledDate) {
       toast.error("Please pick a start date for the scheduled booking.");
       return;
@@ -104,6 +108,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   }
 
   const artisanProfile = artisan.profileId;
+  const isSuspended = !!artisanProfile?.isSuspended;
   const name = artisanProfile?.fullName || "Unknown";
   const avatar = resolveAssetUrl(artisanProfile?.avatarUrl || "") || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
   const bio = artisanProfile?.bio;
@@ -191,8 +196,23 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
+        {/* Suspended notice — overrides everything else. Cannot be hired. */}
+        {isSuspended && (
+          <div className="max-w-5xl mx-auto px-4 mt-6">
+            <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-5 flex items-start gap-3">
+              <Ban className="w-5 h-5 text-destructive shrink-0 mt-0.5" strokeWidth={1.5} />
+              <div className="text-sm">
+                <p className="font-display font-semibold text-foreground">Currently unavailable</p>
+                <p className="text-muted-foreground mt-1">
+                  This artisan can&apos;t accept new jobs at the moment. You can still browse their profile, but new hires are paused until further notice.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Unverified note — same dashed empty-state look as the no-portfolio block */}
-        {!artisan.isVerified && (
+        {!isSuspended && !artisan.isVerified && (
           <div className="max-w-5xl mx-auto px-4 mt-6">
             <div className="border border-dashed border-border rounded-2xl p-5 flex items-start gap-3">
               <ShieldOff className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" strokeWidth={1.5} />
@@ -238,8 +258,10 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
             <Button
               size="lg"
               variant="secondary"
+              disabled={isSuspended}
               className="shrink-0 font-semibold rounded-xl"
               onClick={() => {
+                if (isSuspended) return;
                 if (!isAuthenticated) {
                   router.push(`/login?next=${encodeURIComponent(`/artisan/${id}`)}`);
                   return;
@@ -248,7 +270,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
               }}
             >
               <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
-              {isAuthenticated ? "Hire This Artisan" : "Sign In to Hire"}
+              {isSuspended ? "Unavailable" : isAuthenticated ? "Hire This Artisan" : "Sign In to Hire"}
             </Button>
           </div>
         </div>
@@ -313,7 +335,20 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                 Send a request now and chat with the artisan about details. They&apos;ll accept or decline.
               </p>
 
-              {!isAuthenticated ? (
+              {isSuspended ? (
+                <div className="flex flex-col items-center gap-4 py-8 text-center">
+                  <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <Ban strokeWidth={1} className="w-7 h-7 text-destructive" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Currently unavailable</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    This artisan isn&apos;t accepting new jobs. Check back later or browse other artisans.
+                  </p>
+                  <Button variant="outline" className="rounded-xl" onClick={() => router.push("/artisan")}>
+                    Browse other artisans
+                  </Button>
+                </div>
+              ) : !isAuthenticated ? (
                 <div className="flex flex-col items-center gap-4 py-8 text-center">
                   <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
                     <Briefcase strokeWidth={1} className="w-7 h-7 text-primary" />

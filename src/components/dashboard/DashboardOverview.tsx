@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight, AlertTriangle, Building2, ShieldOff, ShieldCheck } from "lucide-react";
+import { DollarSign, FileText, CheckCircle2, Clock, ArrowUpRight, Package, Briefcase, Star, TrendingUp, ShoppingBag, Image, ArrowRight, AlertTriangle, Building2, ShieldOff, ShieldCheck, Wallet as WalletIcon, Receipt, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +39,26 @@ const DashboardOverview = () => {
   // null = unknown, "none" = never submitted, otherwise the latest status string.
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
+  // Wallet snapshot for sellers (artisan + supplier)
+  interface WalletSnapshot {
+    pendingBalance: number;
+    holdingBalance: number;
+    availableBalance: number;
+    feesOwed: number;
+    withdrawalsPaused: boolean;
+    pauseReason?: string;
+    isNegative: boolean;
+    holdHours: number;
+  }
+  const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
+
+  // Active escrow count — quick "X awaiting release" hint
+  const [heldEscrowCount, setHeldEscrowCount] = useState<number>(0);
+
+  // Suspension status
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -57,6 +77,13 @@ const DashboardOverview = () => {
         if (isSeller) {
           fetches.push(
             apiGet<{ data: { verifications: { status: string; createdAt: string }[] } }>("/verification/my").catch(() => null)
+          );
+          // Wallet + held escrow for sellers
+          fetches.push(
+            apiGet<{ data: { wallet: WalletSnapshot } }>("/wallet/me").catch(() => null)
+          );
+          fetches.push(
+            apiGet<{ data: { entries: unknown[] } }>("/wallet/me/escrow").catch(() => null)
           );
         }
         const results = await Promise.all(fetches);
@@ -77,16 +104,28 @@ const DashboardOverview = () => {
           setIsVerified(!!s?.isVerified);
         }
         if (isSeller) {
-          const verifIdx = profile?.role === "artisan" || profile?.role === "supplier" ? 3 : 2;
-          const verifRes = results[verifIdx] as { data: { verifications: { status: string; createdAt: string }[] } } | null;
+          // results layout for sellers: [stats, orders, role-profile, verifications, wallet, escrow]
+          const verifRes = results[3] as { data: { verifications: { status: string; createdAt: string }[] } } | null;
           const list = verifRes?.data?.verifications || [];
           if (list.length === 0) {
             setVerificationStatus("none");
           } else {
-            // newest first by createdAt
             const sorted = [...list].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
             setVerificationStatus(sorted[0].status);
           }
+          const walletRes = results[4] as { data: { wallet: WalletSnapshot } } | null;
+          if (walletRes?.data?.wallet) setWallet(walletRes.data.wallet);
+          const escrowRes = results[5] as { data: { entries: unknown[] } } | null;
+          if (escrowRes?.data?.entries) setHeldEscrowCount(escrowRes.data.entries.length);
+        }
+
+        // Suspension surfaces from the auth profile (loaded by useAuth above) —
+        // the /auth/me payload now includes isSuspended after admin updates.
+        if (profile && (profile as { is_suspended?: boolean }).is_suspended) {
+          setIsSuspended(true);
+          setSuspensionReason(
+            (profile as { suspension_reason?: string }).suspension_reason || null
+          );
         }
       } catch {
         // silent — dashboard still renders
@@ -133,6 +172,72 @@ const DashboardOverview = () => {
           Here&apos;s what&apos;s happening with your account today.
         </p>
       </div>
+
+      {/* Suspension banner — top priority. Shown for any suspended seller. */}
+      {(role === "artisan" || role === "supplier") && isSuspended && (
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 flex items-start gap-3">
+          <Ban className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-display font-semibold text-foreground">Account suspended</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {suspensionReason || "Contact admin to resolve."} You can&apos;t accept new orders or hires until reinstated. In-progress work continues to completion.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet alerts — negative balance and fees-owed warnings */}
+      {(role === "artisan" || role === "supplier") && wallet && (
+        <>
+          {wallet.isNegative && (
+            <Link href="/dashboard/wallet" className="block">
+              <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 flex items-start gap-3 hover:bg-destructive/15 transition-colors">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-display font-semibold text-foreground">
+                    Wallet in the red — payouts paused
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your available balance is{" "}
+                    <strong className="text-destructive">
+                      ₦{(wallet.availableBalance / 100).toLocaleString("en-NG")}
+                    </strong>
+                    . Future earnings will go toward this balance first.
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              </div>
+            </Link>
+          )}
+          {wallet.feesOwed > 0 && !wallet.isNegative && (
+            <Link href="/dashboard/wallet" className="block">
+              <div className="rounded-2xl bg-warning/10 border border-warning/30 p-4 flex items-start gap-3 hover:bg-warning/15 transition-colors">
+                <Receipt className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-display font-semibold text-foreground">
+                    Platform fees owed: ₦{(wallet.feesOwed / 100).toLocaleString("en-NG")}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Will be deducted from your wallet on the next weekly invoice.
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              </div>
+            </Link>
+          )}
+          {wallet.withdrawalsPaused && !wallet.isNegative && (wallet.feesOwed || 0) === 0 && (
+            <div className="rounded-2xl bg-warning/10 border border-warning/30 p-4 flex items-start gap-3">
+              <ShieldOff className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <div>
+                <p className="font-display font-semibold text-foreground">Payouts paused</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {wallet.pauseReason || "Contact admin if you believe this is in error."}
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Verification banner (artisan + supplier) — surfaces the current state of their identity/business verification. */}
       {(role === "artisan" || role === "supplier") &&
@@ -294,6 +399,61 @@ const DashboardOverview = () => {
               </div>
             ))}
       </div>
+
+      {/* Wallet snapshot — 3-bucket view for sellers */}
+      {(role === "artisan" || role === "supplier") && wallet && !loading && (
+        <div className="card-elevated p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <WalletIcon className="w-5 h-5 text-primary" strokeWidth={1} />
+              <h2 className="font-display text-lg font-bold text-foreground">Wallet</h2>
+            </div>
+            <Link href="/dashboard/wallet">
+              <Button variant="ghost" size="sm" className="text-primary text-xs">
+                Manage <ArrowUpRight className="w-4 h-4 ml-1" strokeWidth={1} />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-warning/5 border border-warning/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-warning" strokeWidth={1} />
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">In Escrow</p>
+              </div>
+              <p className="font-display text-xl font-bold text-foreground">
+                ₦{(wallet.pendingBalance / 100).toLocaleString("en-NG")}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {heldEscrowCount > 0 ? `${heldEscrowCount} awaiting release` : "Awaiting buyer acceptance"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-accent/5 border border-accent/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="w-4 h-4 text-accent" strokeWidth={1} />
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Holding</p>
+              </div>
+              <p className="font-display text-xl font-bold text-foreground">
+                ₦{(wallet.holdingBalance / 100).toLocaleString("en-NG")}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Cools down for {wallet.holdHours}h
+              </p>
+            </div>
+            <div className={`rounded-xl border p-4 ${wallet.isNegative ? "bg-destructive/5 border-destructive/30" : "bg-success/5 border-success/20"}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className={`w-4 h-4 ${wallet.isNegative ? "text-destructive" : "text-success"}`} strokeWidth={1} />
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Available</p>
+              </div>
+              <p className={`font-display text-xl font-bold ${wallet.isNegative ? "text-destructive" : "text-foreground"}`}>
+                ₦{(wallet.availableBalance / 100).toLocaleString("en-NG")}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {wallet.withdrawalsPaused ? "Payouts paused" : "Ready to withdraw"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Links */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

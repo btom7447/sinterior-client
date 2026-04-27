@@ -61,6 +61,9 @@ interface Job {
   artisanEndApproved?: boolean;
   cancellationReason?: string;
   cancelledBy?: "client" | "artisan";
+  workAccepted?: boolean;
+  workAcceptedAt?: string;
+  workAutoAcceptAt?: string;
   startDate?: string;
   endDate?: string;
   createdAt: string;
@@ -133,6 +136,7 @@ export default function DashboardJobs() {
     | "cancel"
     | "approve-start"
     | "approve-end"
+    | "accept-work"
   >(null);
 
   const fetchJobs = useCallback(async (page = 1) => {
@@ -151,7 +155,7 @@ export default function DashboardJobs() {
 
   const performAction = async (
     id: string,
-    action: "accept" | "reject" | "cancel" | "approve-start" | "approve-end",
+    action: "accept" | "reject" | "cancel" | "approve-start" | "approve-end" | "accept-work",
     successMsg: string,
     body: Record<string, unknown> = {}
   ) => {
@@ -463,6 +467,55 @@ export default function DashboardJobs() {
                     <CreditCard className="w-4 h-4" strokeWidth={1} />
                     {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.totalAmount)} (${selected.daysCharged} day${selected.daysCharged === 1 ? "" : "s"})`}
                   </button>
+                )}
+
+                {/* Accept work — paid + completed + not yet accepted (client only).
+                    Releases the escrow to the artisan. */}
+                {!isArtisan && selected.status === "completed" && selected.paymentStatus === "paid" && !selected.workAccepted && (
+                  <button
+                    onClick={() => setActionModal("accept-work")}
+                    disabled={statusUpdating}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
+                    Accept work — release payment
+                  </button>
+                )}
+
+                {/* Already accepted indicator */}
+                {!isArtisan && selected.workAccepted && (
+                  <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                    <p className="text-sm text-foreground">
+                      Work accepted. Payment released to artisan.
+                    </p>
+                  </div>
+                )}
+
+                {/* Artisan view — payment held in escrow awaiting client acceptance */}
+                {isArtisan && selected.status === "completed" && selected.paymentStatus === "paid" && !selected.workAccepted && (
+                  <div className="p-3 rounded-xl border border-warning/20 bg-warning/5 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-warning shrink-0" />
+                      <p className="text-sm font-medium text-foreground">Awaiting client acceptance</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-6">
+                      Payment is held in escrow.{" "}
+                      {selected.workAutoAcceptAt
+                        ? <>Auto-releases on <strong className="text-foreground">{fmtDate(selected.workAutoAcceptAt)}</strong> if client takes no action.</>
+                        : "Will auto-release after the platform window if the client takes no action."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Artisan view — work was accepted, escrow released */}
+                {isArtisan && selected.workAccepted && (
+                  <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                    <p className="text-sm text-foreground">
+                      Work accepted by client. Payment released to your wallet.
+                    </p>
+                  </div>
                 )}
 
                 {!isArtisan && selected.status === "completed" && (
@@ -904,6 +957,38 @@ export default function DashboardJobs() {
             <strong className="text-foreground">If there&apos;s a disagreement</strong>, raise a dispute
             instead so admin can mediate. Cancelling ends the engagement entirely.
           </span>
+        }
+        loading={statusUpdating}
+      />
+
+      {/* Accept work — releases escrow to artisan. Only for client. */}
+      <JobActionModal
+        open={actionModal === "accept-work" && !!selected}
+        onClose={() => setActionModal(null)}
+        onConfirm={() => {
+          if (selected) performAction(selected._id, "accept-work", "Work accepted");
+        }}
+        title="Accept work and release payment"
+        description={
+          <>
+            By accepting, you confirm the work meets the agreed standard.{" "}
+            {selected?.totalAmount && (
+              <>
+                <strong className="text-foreground">{formatNaira(selected.totalAmount)}</strong> will release
+                to the artisan&apos;s wallet (available after the platform hold period).{" "}
+              </>
+            )}
+            <strong className="text-foreground">You won&apos;t be able to dispute after acceptance</strong> —
+            raise a dispute now if there&apos;s a problem.
+          </>
+        }
+        icon={CheckCircle2}
+        tone="success"
+        confirmLabel="Yes, accept work"
+        agreementLabel={
+          <>
+            I confirm the work meets the agreed standard and release payment to the artisan.
+          </>
         }
         loading={statusUpdating}
       />

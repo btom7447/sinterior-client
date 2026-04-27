@@ -5,7 +5,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, ShieldCheck } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useArtisanSearch } from "@/hooks/useArtisanSearch";
 import LocationPermissionBanner from "@/components/artisan/LocationPermissionBanner";
@@ -107,6 +107,21 @@ export default function ArtisanPage() {
           onRequestLocation={requestLocation}
           onToggleNearby={() => setNearbyEnabled((prev) => !prev)}
         />
+
+        {/* Escrow trust note — payments are held until the work is accepted. */}
+        <div className="mb-6 rounded-2xl bg-success/5 border border-success/20 p-4 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-success" strokeWidth={1.5} />
+          </div>
+          <div className="text-sm">
+            <p className="font-semibold text-foreground">Payments protected by Sintherior escrow</p>
+            <p className="text-muted-foreground mt-0.5">
+              Your money is held by Sintherior until the job is completed and you accept the work.
+              Cancel anytime before start for a full refund — and raise a dispute if anything goes
+              wrong.
+            </p>
+          </div>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1" ref={searchRef}>

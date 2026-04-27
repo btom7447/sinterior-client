@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, ShieldCheck, ShieldOff, Navigation } from "lucide-react";
+import { Star, MapPin, ShieldCheck, ShieldOff, Navigation, Ban } from "lucide-react";
 import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 
 interface ArtisanCardProps {
@@ -14,17 +14,25 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
   const avatar =
     resolveAssetUrl(profile?.avatarUrl || "") ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
+  const isSuspended = !!profile?.isSuspended;
 
   return (
     <Link href={`/artisan/${artisan._id}`}>
-      <div className="card-interactive overflow-hidden">
+      <div className={`card-interactive overflow-hidden ${isSuspended ? "opacity-75" : ""}`}>
         <div className="relative">
           <img
             src={avatar}
             alt={name}
-            className="w-full h-48 object-cover relative z-0"
+            className={`w-full h-48 object-cover relative z-0 ${isSuspended ? "grayscale" : ""}`}
           />
           <div className="absolute inset-0 bg-black/60 z-10" />
+
+          {isSuspended && (
+            <div className="absolute top-3 left-3 z-20 bg-destructive text-destructive-foreground px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+              <Ban className="w-3 h-3" strokeWidth={1.5} />
+              <span className="text-xs font-semibold">Unavailable</span>
+            </div>
+          )}
 
           {artisan.distanceKm != null && (
             <div className="absolute top-3 right-3 z-20 bg-background/90 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1">
@@ -79,7 +87,13 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
                 <span className="text-muted-foreground text-sm ml-1">per day</span>
               )}
             </div>
-            <Button size="sm" className="rounded-lg">Book Now</Button>
+            {isSuspended ? (
+              <Button size="sm" variant="outline" disabled className="rounded-lg">
+                Unavailable
+              </Button>
+            ) : (
+              <Button size="sm" className="rounded-lg">Book Now</Button>
+            )}
           </div>
         </div>
       </div>

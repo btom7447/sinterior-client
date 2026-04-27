@@ -16,6 +16,7 @@ import {
   Newspaper,
   HelpCircle,
   Sparkles,
+  Wallet as WalletIcon,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,6 +44,7 @@ const menuItems = [
   { title: "Products", url: "/admin/products", icon: Package },
   { title: "Verification", url: "/admin/verification", icon: BadgeCheck },
   { title: "Disputes", url: "/admin/disputes", icon: Scale },
+  { title: "Payments", url: "/admin/payments", icon: WalletIcon },
   { title: "Blog", url: "/admin/blog", icon: Newspaper },
   { title: "Careers", url: "/admin/careers", icon: Briefcase },
   { title: "Help", url: "/admin/help", icon: HelpCircle },
