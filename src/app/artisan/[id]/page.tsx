@@ -17,11 +17,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface ArtisanReview {
+  _id: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  reviewerId: { _id: string; fullName: string; avatarUrl?: string | null };
+}
+
 export default function ArtisanProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { profile, isAuthenticated } = useAuth();
   const [artisan, setArtisan] = useState<ApiArtisan | null>(null);
+  const [reviews, setReviews] = useState<ArtisanReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingType, setBookingType] = useState<"urgent" | "scheduled">("urgent");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -32,6 +41,20 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
       try {
         const res = await apiGet<{ data: { artisan: ApiArtisan } }>(`/artisans/${id}`);
         setArtisan(res.data.artisan);
+
+        // Fetch the artisan's reviews — keyed by their Profile._id, not the
+        // ArtisanProfile._id passed in the URL.
+        const targetProfileId = res.data.artisan?.profileId?._id;
+        if (targetProfileId) {
+          try {
+            const reviewsRes = await apiGet<{ data: { reviews: ArtisanReview[] } }>(
+              `/reviews?artisanId=${targetProfileId}&limit=20`
+            );
+            setReviews(reviewsRes.data?.reviews || []);
+          } catch {
+            // Non-fatal — page still renders without the reviews block.
+          }
+        }
       } catch {
         setArtisan(null);
       } finally {
@@ -446,6 +469,70 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         )}
+
+        {/* Reviews */}
+        <div className="max-w-5xl mx-auto px-4 mt-6">
+          <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Reviews{reviews.length > 0 ? ` (${artisan.reviewCount || reviews.length})` : ""}
+              </h2>
+              {(artisan.reviewCount || 0) > 0 && (
+                <div className="flex items-center gap-1.5 bg-secondary px-3 py-1.5 rounded-xl">
+                  <Star strokeWidth={1} className="w-4 h-4 fill-warning text-warning" />
+                  <span className="font-bold text-sm">{artisan.rating || "—"}</span>
+                  <span className="text-muted-foreground text-xs">/ 5</span>
+                </div>
+              )}
+            </div>
+
+            {reviews.length === 0 ? (
+              <div className="border border-dashed border-border rounded-2xl p-6 flex items-start gap-3">
+                <Star strokeWidth={1.5} className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">No reviews yet</p>
+                  <p className="mt-0.5">
+                    Reviews appear here once clients accept work and rate this artisan.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reviews.map((r) => (
+                  <div key={r._id} className="rounded-xl border border-border p-4">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <img
+                        src={resolveAssetUrl(r.reviewerId?.avatarUrl || "") || `https://api.dicebear.com/7.x/initials/svg?seed=${r.reviewerId?.fullName || "U"}`}
+                        alt={r.reviewerId?.fullName || ""}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {r.reviewerId?.fullName || "Anonymous"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(r.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            strokeWidth={1}
+                            className={`w-3.5 h-3.5 ${i < r.rating ? "fill-warning text-warning" : "text-border"}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">{r.comment}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Certifications */}
         {artisan.certifications && artisan.certifications.length > 0 && (

@@ -100,12 +100,16 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
         }
 
         try {
-          const reviewsRes = await apiGet<{ data: Review[] }>(
-            `/reviews?artisanId=${supplierId}&limit=20`
+          // Use the resolved profile._id (the Profile, not the SupplierProfile)
+          // since reviews are keyed by Profile._id. Fall back to the URL param
+          // for legacy callers.
+          const targetProfileId = supplierRes?.data?.profile?._id || supplierId;
+          const reviewsRes = await apiGet<{ data: { reviews: Review[] } }>(
+            `/reviews?artisanId=${targetProfileId}&limit=20`
           );
-          setReviews(reviewsRes.data || []);
+          setReviews(reviewsRes.data?.reviews || []);
         } catch {
-          // Reviews endpoint may not support suppliers — ok
+          // Reviews endpoint failure is non-fatal — page still renders.
         }
       } catch {
         // silent
