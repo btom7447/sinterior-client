@@ -153,13 +153,19 @@ const menuGroups: Record<string, MenuGroup[]> = {
 };
 
 export function DashboardSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuth();
   const { totalUnread } = useChat();
   const currentPath = pathname;
+
+  // On mobile the sidebar is a drawer over the page — close it after a link
+  // click so the user lands on the new page without an extra tap to dismiss.
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const role = (profile?.role || "client") as keyof typeof menuGroups;
   const groups = menuGroups[role] || menuGroups.client;
@@ -177,7 +183,7 @@ export function DashboardSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="p-4 border-b border-sidebar-border">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" onClick={closeMobile} className="flex items-center gap-3">
           <Image src="/logo.png" alt="Sintherior" width={40} height={40} className="rounded-lg shrink-0" />
           {!collapsed && (
             <span className="font-display text-lg font-bold text-sidebar-foreground">
@@ -210,6 +216,7 @@ export function DashboardSidebar() {
                       >
                         <Link
                           href={item.url}
+                          onClick={closeMobile}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                             isActive
                               ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"

@@ -55,11 +55,17 @@ const menuItems = [
 ];
 
 export function AdminSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuth();
+
+  // On mobile the sidebar is a drawer — close it after a link tap so the user
+  // doesn't have to dismiss the drawer themselves.
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -74,7 +80,7 @@ export function AdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="p-4 border-b border-sidebar-border">
-        <Link href="/admin" className="flex items-center gap-3">
+        <Link href="/admin" onClick={closeMobile} className="flex items-center gap-3">
           <div className="relative shrink-0">
             <Image src="/logo.png" alt="Sintherior" width={40} height={40} className="rounded-lg" />
             <Shield className="absolute -bottom-1 -right-1 w-4 h-4 text-primary bg-card rounded-full p-0.5" />
@@ -109,6 +115,7 @@ export function AdminSidebar() {
                     >
                       <Link
                         href={item.url}
+                        onClick={closeMobile}
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                           isActive
                             ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"

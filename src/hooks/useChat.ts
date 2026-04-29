@@ -27,6 +27,10 @@ export interface ChatMessage {
   media?: string[];
   isRead: boolean;
   createdAt: string;
+  // Client-only flags for optimistic UI. The server never sends these — they
+  // exist on temporary rows we render before the socket ack arrives.
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface SearchResult {
@@ -320,30 +324,72 @@ export const useMessages = (conversationId: string | null) => {
 
   const sendMessage = useCallback(
     async (content: string, receiverId: string) => {
-      if (!content.trim() || !receiverId) return;
+      const trimmed = content.trim();
+      if (!trimmed || !receiverId) return;
 
       // Use local socket ref, or fall back to the shared singleton (needed for
       // new conversations where conversationId is "" and the effect didn't run)
       const s = socketRef.current ?? getSocket();
-      if (!s?.connected) return;
+
+      // Optimistic insert — render the message immediately with a temp _id so
+      // the bubble appears the instant the user hits send. We replace the temp
+      // row when the server ack lands; mark it `failed` if the ack errors.
+      const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const optimistic: ChatMessage = {
+        _id: tempId,
+        conversationId: conversationId || "",
+        senderId: myProfileId || "",
+        receiverId,
+        content: trimmed,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        pending: true,
+      };
+      setMessages((prev) => [...prev, optimistic]);
+
+      // No live socket — flag the optimistic row as failed so the user can
+      // see + retry rather than the message vanishing.
+      if (!s?.connected) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === tempId ? { ...m, pending: false, failed: true } : m))
+        );
+        return null;
+      }
 
       return new Promise<ChatMessage | null>((resolve) => {
-        s.emit("message:send", { receiverId, content: content.trim() }, (response: any) => {
+        // Defensive timeout — if the server never acks (dropped packet, etc.)
+        // mark the row failed after 10s so it doesn't sit "sending..." forever.
+        const timeout = setTimeout(() => {
+          setMessages((prev) =>
+            prev.map((m) => (m._id === tempId ? { ...m, pending: false, failed: true } : m))
+          );
+          resolve(null);
+        }, 10000);
+
+        s.emit("message:send", { receiverId, content: trimmed }, (response: any) => {
+          clearTimeout(timeout);
           if (response?.error) {
+            setMessages((prev) =>
+              prev.map((m) => (m._id === tempId ? { ...m, pending: false, failed: true } : m))
+            );
             resolve(null);
             return;
           }
           if (response?.message) {
+            const real = response.message as ChatMessage;
+            // Replace the temp row with the server's canonical message. Also
+            // de-dupe in case `message:new` already fanned the same row in.
             setMessages((prev) => {
-              if (prev.some((m) => m._id === response.message._id)) return prev;
-              return [...prev, response.message];
+              const withoutTemp = prev.filter((m) => m._id !== tempId);
+              if (withoutTemp.some((m) => m._id === real._id)) return withoutTemp;
+              return [...withoutTemp, real];
             });
           }
           resolve(response?.message || null);
         });
       });
     },
-    []
+    [conversationId, myProfileId]
   );
 
   const emitTyping = useCallback(

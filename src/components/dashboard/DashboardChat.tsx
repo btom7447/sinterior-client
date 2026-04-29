@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useChat, useMessages, type Conversation, type SearchResult, type ChatMessage } from "@/hooks/useChat";
 import { resolveAssetUrl } from "@/types/api";
 import { apiUpload } from "@/lib/apiClient";
-import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck, AlertTriangle, ImagePlus, X } from "lucide-react";
+import { Send, MessageCircle, ArrowLeft, Search, Wifi, WifiOff, Check, CheckCheck, AlertTriangle, ImagePlus, X, Clock, AlertCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -161,18 +161,20 @@ export default function DashboardChat() {
         setFilePreviews([]);
         refetch();
       } else {
-        // Send text-only via socket
-        const msg = await sendMessage(newMessage.trim(), receiverId);
+        // Send text-only via socket. Clear the input immediately so the user
+        // can keep typing — the optimistic row already shows their message in
+        // the bubble list. sendMessage handles the failure state on the row.
+        const draft = newMessage.trim();
+        setNewMessage("");
+        const msg = await sendMessage(draft, receiverId);
         if (msg) {
-          setNewMessage("");
           // Update activeConvo with real conversationId after first message in a new conversation
           if (!activeConvo?.conversationId && msg.conversationId) {
             setActiveConvo((prev) => prev ? { ...prev, conversationId: msg.conversationId } : prev);
           }
           refetch();
-        } else {
-          toast.error("Failed to send message");
         }
+        // No toast on failure — the bubble's red ring + alert icon surfaces it.
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send");
@@ -466,7 +468,7 @@ export default function DashboardChat() {
                         {msg.content && (
                           <div className={`px-3.5 py-2 rounded-2xl ${
                             isMine
-                              ? "bg-primary text-primary-foreground rounded-br-md"
+                              ? `bg-primary text-primary-foreground rounded-br-md ${msg.pending ? "opacity-70" : ""} ${msg.failed ? "ring-2 ring-destructive/50" : ""}`
                               : "bg-secondary text-foreground rounded-bl-md"
                           }`}>
                             <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
@@ -475,9 +477,17 @@ export default function DashboardChat() {
                                 {formatTime(msg.createdAt)}
                               </span>
                               {isMine && (
-                                msg.isRead
-                                  ? <CheckCheck className="w-3 h-3 text-primary-foreground/70" />
-                                  : <Check className="w-3 h-3 text-primary-foreground/50" />
+                                msg.failed ? (
+                                  <span title="Failed to send" className="inline-flex items-center gap-0.5 text-destructive">
+                                    <AlertCircle className="w-3 h-3" />
+                                  </span>
+                                ) : msg.pending ? (
+                                  <Clock className="w-3 h-3 text-primary-foreground/60" />
+                                ) : msg.isRead ? (
+                                  <CheckCheck className="w-3 h-3 text-primary-foreground/70" />
+                                ) : (
+                                  <Check className="w-3 h-3 text-primary-foreground/50" />
+                                )
                               )}
                             </div>
                           </div>
@@ -488,9 +498,15 @@ export default function DashboardChat() {
                           <div className="flex items-center gap-1 justify-end mt-0.5 px-1">
                             <span className="text-[10px] text-muted-foreground">{formatTime(msg.createdAt)}</span>
                             {isMine && (
-                              msg.isRead
-                                ? <CheckCheck className="w-3 h-3 text-primary" />
-                                : <Check className="w-3 h-3 text-muted-foreground" />
+                              msg.failed ? (
+                                <AlertCircle className="w-3 h-3 text-destructive" />
+                              ) : msg.pending ? (
+                                <Clock className="w-3 h-3 text-muted-foreground" />
+                              ) : msg.isRead ? (
+                                <CheckCheck className="w-3 h-3 text-primary" />
+                              ) : (
+                                <Check className="w-3 h-3 text-muted-foreground" />
+                              )
                             )}
                           </div>
                         )}

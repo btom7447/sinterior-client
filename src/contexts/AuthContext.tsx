@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { apiGet, apiPost, setToken } from "@/lib/apiClient";
+import { refreshSocketAuth } from "@/lib/socket";
 import { assetUrl } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -145,6 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.data.accessToken);
     const user = data.data.user;
     setState({ user, profile: toProfile(user), loading: false });
+    // If a socket happens to already exist (rare on a fresh login but possible
+    // when navigating away and back), reconnect it with the new token.
+    refreshSocketAuth();
     return data;
   };
 
@@ -191,6 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { currentPassword, newPassword }
     );
     setToken(data.data.accessToken);
+    // Server rotates refresh tokens on password change — make the live socket
+    // pick up the new access token instead of staying on the (now-revoked) one.
+    refreshSocketAuth();
   };
 
   const refreshProfile = useCallback(async () => {

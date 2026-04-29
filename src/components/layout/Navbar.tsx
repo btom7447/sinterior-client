@@ -295,6 +295,7 @@ const Navbar = () => {
                           <Link
                             key={link.href}
                             href={link.href}
+                            onClick={() => setMobileMenuOpen(false)}
                             className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                               isActive(link.href) ? "bg-primary/10 text-primary" : "text-foreground hover:bg-secondary"
                             }`}
@@ -318,14 +319,14 @@ const Navbar = () => {
                               </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                              <Link href="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
+                              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
                                 <LayoutDashboard strokeWidth={1} className="w-4 h-4 text-muted-foreground" /> Dashboard
                               </Link>
-                              <Link href="/dashboard/chat" className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
+                              <Link href="/dashboard/chat" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
                                 <MessageCircle strokeWidth={1} className="w-4 h-4 text-muted-foreground" /> Messages
                                 {totalUnread > 0 && <span className="ml-auto w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{totalUnread}</span>}
                               </Link>
-                              <Link href="/dashboard/profile" className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
+                              <Link href="/dashboard/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors">
                                 <User strokeWidth={1} className="w-4 h-4 text-muted-foreground" /> Profile
                               </Link>
                             </div>
@@ -338,10 +339,10 @@ const Navbar = () => {
                         </>
                       ) : (
                         <div className="border-t border-border pt-3 flex gap-3">
-                          <Link href="/login" className="flex-1">
+                          <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex-1">
                             <Button variant="outline" className="w-full rounded-xl">Log in</Button>
                           </Link>
-                          <Link href="/signup" className="flex-1">
+                          <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="flex-1">
                             <Button className="w-full rounded-xl bg-primary hover:bg-primary/90">Get Started</Button>
                           </Link>
                         </div>
