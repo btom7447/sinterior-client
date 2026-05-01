@@ -6,12 +6,10 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowLeft, ArrowRight, Camera, Plus, X, Check,
-  Clock, Award, MapPin, Wrench, Upload,
-  DollarSign, Calendar, Tag, Ruler, Hash,
+  Clock, Award, MapPin, Wrench, Upload, Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NairaInput } from "@/components/ui/NairaInput";
 import LocationPicker from "@/components/location/LocationPicker";
 import { toast } from "sonner";
 import { apiGet, apiPatch, apiUpload } from "@/lib/apiClient";
@@ -43,20 +41,12 @@ const TOOLS_SUGGESTIONS = [
 ];
 
 const steps = [
-  { number: 1, title: "Specialty",     description: "What do you do?",            icon: Wrench },
-  { number: 2, title: "Pricing",       description: "How you charge clients",      icon: DollarSign },
-  { number: 3, title: "Portfolio",     description: "Show your best work",         icon: Camera },
-  { number: 4, title: "Certifications",description: "Your qualifications",         icon: Award },
-  { number: 5, title: "Availability",  description: "When can clients reach you?", icon: Clock },
+  { number: 1, title: "Specialty",      description: "What do you do?",            icon: Wrench },
+  { number: 2, title: "Your Business",  description: "Your business identity",     icon: Building2 },
+  { number: 3, title: "Portfolio",      description: "Show your best work",        icon: Camera },
+  { number: 4, title: "Certifications", description: "Your qualifications",        icon: Award },
+  { number: 5, title: "Availability",   description: "When can clients reach you?",icon: Clock },
   { number: 6, title: "Service Details",description: "Area & equipment",           icon: Wrench },
-];
-
-const PRICING_MODE_META = [
-  { id: "daily",  icon: Calendar,  label: "Per Day",   desc: "Fixed rate per calendar day. Billed by the day clock." },
-  { id: "hourly", icon: Clock,     label: "Per Hour",  desc: "Billed by hours worked — ideal when job duration varies." },
-  { id: "flat",   icon: Tag,       label: "Flat Rate", desc: "One quoted price for the whole job." },
-  { id: "sqm",    icon: Ruler,     label: "Per m²",    desc: "Common for flooring, tiling, painting and plastering." },
-  { id: "unit",   icon: Hash,      label: "Per Unit",  desc: "Price per item — doors, windows, sockets, etc." },
 ];
 
 // ─── Step components ───────────────────────────────────────────────────────────
@@ -381,79 +371,70 @@ function AvailabilityStep({
   );
 }
 
-function PricingStep({
-  pricingModes, setPricingModes,
-  pricePerDay, setPricePerDay,
-  pricePerHour, setPricePerHour,
+function BusinessStep({
+  businessName, setBusinessName,
+  businessTagline, setBusinessTagline,
 }: {
-  pricingModes: string[];
-  setPricingModes: (v: string[]) => void;
-  pricePerDay: number | null;
-  setPricePerDay: (v: number | null) => void;
-  pricePerHour: number | null;
-  setPricePerHour: (v: number | null) => void;
+  businessName: string;
+  setBusinessName: (v: string) => void;
+  businessTagline: string;
+  setBusinessTagline: (v: string) => void;
 }) {
-  const toggleMode = (id: string) => {
-    setPricingModes(
-      pricingModes.includes(id) ? pricingModes.filter((m) => m !== id) : [...pricingModes, id]
-    );
-  };
-
   return (
     <div>
-      <h2 className="font-display text-2xl font-bold text-foreground mb-1">How do you charge?</h2>
+      <h2 className="font-display text-2xl font-bold text-foreground mb-1">Your business identity</h2>
       <p className="text-muted-foreground mb-6">
-        Pick every pricing mode you offer. Clients will see these on your profile and select one when hiring you.
+        This appears at the top of every quote you send clients — it makes you look professional and memorable.
+        You can always update it later.
       </p>
 
-      <div className="space-y-3 mb-6">
-        {PRICING_MODE_META.map(({ id, icon: Icon, label, desc }) => {
-          const active = pricingModes.includes(id);
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => toggleMode(id)}
-              className={`w-full text-left flex items-start gap-4 p-4 rounded-xl border transition-colors ${
-                active
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/30"
-              }`}
-            >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
-                <Icon strokeWidth={1.5} className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-              {active && <Check className="w-4 h-4 text-primary shrink-0 mt-1" />}
-            </button>
-          );
-        })}
+      <div className="space-y-5">
+        <div>
+          <label className="text-sm font-semibold text-foreground mb-1 block">
+            Business name <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+          </label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Your trading name — e.g. &ldquo;Emeka Electrical Services&rdquo; or &ldquo;TileKing Lagos&rdquo;.
+            Leave blank to use your full name.
+          </p>
+          <Input
+            placeholder="e.g. Emeka Electrical Services"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            maxLength={100}
+            className="rounded-xl"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-foreground mb-1 block">
+            Tagline <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+          </label>
+          <p className="text-xs text-muted-foreground mb-2">
+            One short line that describes what you do or your promise — e.g. &ldquo;Fast, clean, guaranteed.&rdquo;
+          </p>
+          <Input
+            placeholder="e.g. Fast, clean, guaranteed."
+            value={businessTagline}
+            onChange={(e) => setBusinessTagline(e.target.value)}
+            maxLength={200}
+            className="rounded-xl"
+          />
+        </div>
+
+        <div className="p-4 rounded-xl bg-secondary/60 border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Quote preview</p>
+          </div>
+          <p className="text-base font-bold text-foreground">
+            {businessName.trim() || "Your Name"}
+          </p>
+          {businessTagline.trim() && (
+            <p className="text-xs text-muted-foreground mt-0.5">{businessTagline.trim()}</p>
+          )}
+        </div>
       </div>
-
-      {pricingModes.includes("daily") && (
-        <div className="mb-4">
-          <label className="text-sm font-semibold text-foreground mb-1 block">Daily rate (₦)</label>
-          <p className="text-xs text-muted-foreground mb-2">What you charge per day. Locked in when client hires.</p>
-          <NairaInput value={pricePerDay} onChange={setPricePerDay} placeholder="e.g. 25,000" className="rounded-xl" />
-        </div>
-      )}
-
-      {pricingModes.includes("hourly") && (
-        <div className="mb-4">
-          <label className="text-sm font-semibold text-foreground mb-1 block">Hourly rate (₦)</label>
-          <p className="text-xs text-muted-foreground mb-2">What you charge per hour. Billed by the clock.</p>
-          <NairaInput value={pricePerHour} onChange={setPricePerHour} placeholder="e.g. 3,500" className="rounded-xl" />
-        </div>
-      )}
-
-      {pricingModes.length === 0 && (
-        <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded-xl">
-          Select at least one pricing mode to continue.
-        </p>
-      )}
     </div>
   );
 }
@@ -602,10 +583,9 @@ export default function ArtisanOnboardingPage() {
   // Step 1 — Specialty
   const [skillCategory, setSkillCategory] = useState("");
   const [skill, setSkill] = useState("");
-  // Step 2 — Pricing
-  const [pricingModes, setPricingModes] = useState<string[]>([]);
-  const [pricePerDay, setPricePerDay] = useState<number | null>(null);
-  const [pricePerHour, setPricePerHour] = useState<number | null>(null);
+  // Step 2 — Business
+  const [businessName, setBusinessName] = useState("");
+  const [businessTagline, setBusinessTagline] = useState("");
   // Step 3 — Portfolio
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   // Step 4 — Certifications
@@ -679,9 +659,8 @@ export default function ArtisanOnboardingPage() {
           serviceRadiusKm: radius,
           tools,
           additionalSkills: extraSkills,
-          pricingModes,
-          ...(pricePerDay != null ? { pricePerDay } : {}),
-          ...(pricePerHour != null ? { pricePerHour } : {}),
+          ...(businessName.trim() ? { businessName: businessName.trim() } : {}),
+          ...(businessTagline.trim() ? { businessTagline: businessTagline.trim() } : {}),
           ...(address ? { address } : {}),
           ...(skill ? { skill } : {}),
           ...(skillCategory ? { skillCategory } : {}),
@@ -705,7 +684,8 @@ export default function ArtisanOnboardingPage() {
   };
 
   const rightPanelContent = [
-    { heading: "Set how you charge", body: "Clients see your pricing modes and select one when hiring. Rates you set here are locked in at hire time." },
+    { heading: "What's your trade?", body: "Clients search and filter by skill category. Picking the right one puts you in front of the right people." },
+    { heading: "Look professional from day one", body: "Your business name and tagline appear at the top of every quote you send. A clear identity wins trust before work starts." },
     { heading: "Show clients your best work", body: "Artisans with portfolio photos receive 3× more enquiries than those without." },
     { heading: "Credentials build trust", body: "Clients are 60% more likely to hire artisans with verified certifications." },
     { heading: "Match the right jobs", body: "Setting your availability helps us show your profile at the right times." },
@@ -763,13 +743,11 @@ export default function ArtisanOnboardingPage() {
               />
             )}
             {step === 2 && (
-              <PricingStep
-                pricingModes={pricingModes}
-                setPricingModes={setPricingModes}
-                pricePerDay={pricePerDay}
-                setPricePerDay={setPricePerDay}
-                pricePerHour={pricePerHour}
-                setPricePerHour={setPricePerHour}
+              <BusinessStep
+                businessName={businessName}
+                setBusinessName={setBusinessName}
+                businessTagline={businessTagline}
+                setBusinessTagline={setBusinessTagline}
               />
             )}
             {step === 3 && <PortfolioStep items={portfolio} setItems={setPortfolio} />}
@@ -804,12 +782,7 @@ export default function ArtisanOnboardingPage() {
               onClick={handleNext}
               disabled={
                 saving ||
-                (step === 1 && (!skillCategory || !skill)) ||
-                (step === 2 && (
-                  pricingModes.length === 0 ||
-                  (pricingModes.includes("daily") && !pricePerDay) ||
-                  (pricingModes.includes("hourly") && !pricePerHour)
-                ))
+                (step === 1 && (!skillCategory || !skill))
               }
               className="flex-1 rounded-xl gap-2 bg-primary hover:bg-primary/90"
             >

@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { X, Plus, Trash2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NairaInput } from "@/components/ui/NairaInput";
 import { apiPost, apiPatch } from "@/lib/apiClient";
 import { formatNaira } from "@/types/api";
 import { toast } from "sonner";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MaterialRow {
   description: string;
@@ -18,9 +19,12 @@ interface MaterialRow {
   lineTotal: number;
 }
 
-interface Quote {
+export interface QuoteData {
   _id: string;
-  pricingMode: string;
+  artisanBusiness?: { name?: string; tagline?: string; logoUrl?: string };
+  labourType: string;
+  labourRate: number;
+  labourQty: number;
   labourCost: number;
   materials: MaterialRow[];
   materialTotal: number;
@@ -34,46 +38,74 @@ interface Quote {
 interface QuoteModalProps {
   jobId: string;
   jobTitle: string;
+  clientName: string;
   artisanName: string;
-  pricingMode: string;
+  artisanAvatarUrl?: string;
   role: "artisan" | "client";
-  existingQuote?: Quote | null;
+  existingQuote?: QuoteData | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const LABOUR_TYPES = [
+  { value: "flat",   label: "Fixed price",    hint: "One total amount for the whole job" },
+  { value: "hourly", label: "Per hour",        hint: "Rate × number of hours" },
+  { value: "daily",  label: "Per day",         hint: "Rate × number of days" },
+  { value: "sqm",    label: "Per square metre", hint: "Rate × area in m²" },
+  { value: "unit",   label: "Per item",        hint: "Rate × number of items" },
+];
+
+const LABOUR_QTY_LABELS: Record<string, string> = {
+  hourly: "Hours",
+  daily:  "Days",
+  sqm:    "Area (m²)",
+  unit:   "Quantity",
+};
+
 const EMPTY_ROW = (): MaterialRow => ({
-  description: "",
-  qty: 1,
-  unit: "",
-  unitPrice: 0,
-  lineTotal: 0,
+  description: "", qty: 1, unit: "", unitPrice: 0, lineTotal: 0,
 });
 
-export default function QuoteModal({
+const fmtDate = (s: string) =>
+  new Date(s).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" });
+
+// ── Artisan: Quote Builder ────────────────────────────────────────────────────
+
+function QuoteBuilder({
   jobId,
   jobTitle,
-  artisanName,
-  pricingMode,
-  role,
+  clientName,
   existingQuote,
   onClose,
   onSuccess,
-}: QuoteModalProps) {
-  const isArtisan = role === "artisan";
-  const isEditing = !!existingQuote && isArtisan;
+}: {
+  jobId: string;
+  jobTitle: string;
+  clientName: string;
+  existingQuote?: QuoteData | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const isEditing = !!existingQuote;
 
-  const [labourCost, setLabourCost] = useState<number | null>(
-    existingQuote?.labourCost ?? null
+  const [labourType, setLabourType] = useState(existingQuote?.labourType ?? "flat");
+  const [labourRate, setLabourRate] = useState<number | null>(existingQuote?.labourRate ?? null);
+  const [labourQty,  setLabourQty]  = useState<number>(existingQuote?.labourQty  ?? 1);
+  const [materials,  setMaterials]  = useState<MaterialRow[]>(
+    existingQuote?.materials?.length ? existingQuote.materials : []
   );
-  const [materials, setMaterials] = useState<MaterialRow[]>(
-    existingQuote?.materials?.length ? existingQuote.materials : [EMPTY_ROW()]
-  );
-  const [notes, setNotes] = useState(existingQuote?.notes ?? "");
+  const [notes,      setNotes]      = useState(existingQuote?.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
 
-  const materialTotal = materials.reduce((sum, r) => sum + (r.lineTotal || 0), 0);
-  const total = (labourCost ?? 0) + materialTotal;
+  const isFlat = labourType === "flat";
+  const labourCost = isFlat
+    ? (labourRate ?? 0)
+    : (labourRate ?? 0) * labourQty;
+
+  const materialTotal = materials.reduce((s, r) => s + (r.lineTotal || 0), 0);
+  const total = labourCost + materialTotal;
 
   const updateRow = (i: number, field: keyof MaterialRow, value: string | number) => {
     setMaterials((prev) => {
@@ -87,30 +119,26 @@ export default function QuoteModal({
     });
   };
 
-  const addRow = () => setMaterials((prev) => [...prev, EMPTY_ROW()]);
-  const removeRow = (i: number) =>
-    setMaterials((prev) => prev.filter((_, idx) => idx !== i));
+  const canSend = (labourRate ?? 0) > 0 && (!isFlat ? labourQty > 0 : true);
 
   const handleSend = async () => {
-    if (!labourCost || labourCost <= 0) {
-      toast.error("Labour cost is required");
-      return;
-    }
+    if (!canSend) { toast.error("Enter a labour amount to continue"); return; }
     setSubmitting(true);
     try {
       const payload = {
         jobId,
-        pricingMode,
-        labourCost,
+        labourType,
+        labourRate,
+        labourQty: isFlat ? 1 : labourQty,
         materials: materials.filter((r) => r.description.trim()),
         notes: notes.trim() || undefined,
       };
       if (isEditing) {
         await apiPatch(`/quotes/${existingQuote!._id}`, payload);
-        toast.success("Quote updated");
+        toast.success("Quote updated and resent");
       } else {
         await apiPost("/quotes", payload);
-        toast.success("Quote sent");
+        toast.success("Quote sent to client");
       }
       onSuccess();
     } catch {
@@ -120,227 +148,499 @@ export default function QuoteModal({
     }
   };
 
-  const handleAccept = async () => {
-    if (!existingQuote) return;
-    setSubmitting(true);
-    try {
-      await apiPost(`/quotes/${existingQuote._id}/accept`, {});
-      toast.success("Quote accepted");
-      onSuccess();
-    } catch {
-      toast.error("Failed to accept quote");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!existingQuote) return;
-    setSubmitting(true);
-    try {
-      await apiPost(`/quotes/${existingQuote._id}/reject`, {});
-      toast.success("Quote rejected");
-      onSuccess();
-    } catch {
-      toast.error("Failed to reject quote");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-border">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-display font-semibold text-foreground text-lg">
-                {isArtisan ? (isEditing ? "Update Quote" : "Send Quote") : "Quote from Artisan"}
-              </h2>
-              {existingQuote && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                  v{existingQuote.version}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {jobTitle} · {artisanName}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="w-5 h-5" />
-          </button>
+    <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+        <div>
+          <h2 className="font-display font-bold text-foreground text-lg">
+            {isEditing ? "Update Quote" : "Create Quote"}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {jobTitle} · for {clientName}
+          </p>
         </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Labour */}
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Labour cost (₦) <span className="text-destructive">*</span>
-            </Label>
-            {isArtisan ? (
-              <div className="mt-1.5">
-                <NairaInput value={labourCost} onChange={setLabourCost} placeholder="e.g. 50,000" />
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+        {/* ── STEP 1: Labour ──────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">1</span>
+            <p className="font-semibold text-foreground">Your labour charge</p>
+          </div>
+
+          {/* Labour type selector */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+            {LABOUR_TYPES.map((lt) => (
+              <button
+                key={lt.value}
+                type="button"
+                onClick={() => setLabourType(lt.value)}
+                className={`p-3 rounded-xl border text-left transition-colors ${
+                  labourType === lt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <p className={`text-sm font-medium ${labourType === lt.value ? "text-foreground" : "text-muted-foreground"}`}>
+                  {lt.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{lt.hint}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Rate + qty inputs */}
+          <div className={`grid gap-3 ${isFlat ? "" : "sm:grid-cols-2"}`}>
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
+                {isFlat ? "Total amount (₦)" : "Rate (₦)"}
+                <span className="text-destructive ml-1">*</span>
+              </label>
+              <NairaInput
+                value={labourRate}
+                onChange={setLabourRate}
+                placeholder={isFlat ? "e.g. 80,000" : "e.g. 5,000"}
+              />
+            </div>
+            {!isFlat && (
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
+                  {LABOUR_QTY_LABELS[labourType] ?? "Quantity"}
+                  <span className="text-destructive ml-1">*</span>
+                </label>
+                <Input
+                  type="number"
+                  min={0.1}
+                  step={0.5}
+                  value={labourQty || ""}
+                  onChange={(e) => setLabourQty(parseFloat(e.target.value) || 0)}
+                  placeholder="e.g. 3"
+                  className="h-11"
+                />
               </div>
-            ) : (
-              <p className="mt-1.5 text-foreground font-semibold text-lg">
-                {formatNaira(existingQuote?.labourCost ?? 0)}
-              </p>
             )}
           </div>
 
-          {/* Materials */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold text-foreground">Materials</p>
-              {isArtisan && (
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="text-xs text-primary hover:text-primary/80 inline-flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add row
-                </button>
+          {/* Labour subtotal preview */}
+          {(labourRate ?? 0) > 0 && (
+            <div className="mt-2 text-sm text-muted-foreground">
+              Labour subtotal:{" "}
+              <span className="font-semibold text-foreground">{formatNaira(labourCost)}</span>
+              {!isFlat && labourQty > 0 && (
+                <span className="ml-1 text-xs">
+                  ({formatNaira(labourRate ?? 0)} × {labourQty} {LABOUR_QTY_LABELS[labourType]?.toLowerCase()})
+                </span>
               )}
             </div>
+          )}
+        </section>
 
-            {/* Column headers */}
-            <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 text-[11px] uppercase tracking-wider text-muted-foreground mb-1 px-1">
-              <span>Description</span>
-              <span>Qty</span>
-              <span>Unit</span>
-              <span>Unit price</span>
-              <span className="w-8" />
+        {/* ── STEP 2: Materials ────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">2</span>
+              <div>
+                <p className="font-semibold text-foreground">Materials</p>
+                <p className="text-xs text-muted-foreground">Optional — add items you'll supply</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setMaterials((p) => [...p, EMPTY_ROW()])}
+              className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Add item
+            </button>
+          </div>
 
-            <div className="space-y-2">
-              {(isArtisan ? materials : existingQuote?.materials ?? []).map((row, i) => (
-                <div key={i} className="grid sm:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-center">
-                  {isArtisan ? (
-                    <>
-                      <Input
-                        placeholder="e.g. Plywood sheets"
-                        value={row.description}
-                        onChange={(e) => updateRow(i, "description", e.target.value)}
-                      />
+          {materials.length === 0 ? (
+            <div className="border border-dashed border-border rounded-xl p-5 text-center text-sm text-muted-foreground">
+              No materials yet. Tap <strong>Add item</strong> if you&apos;ll be supplying anything.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {materials.map((row, i) => (
+                <div key={i} className="bg-secondary/40 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Input
+                      placeholder="What is it? (e.g. Plywood sheets, Paint, Tiles)"
+                      value={row.description}
+                      onChange={(e) => updateRow(i, "description", e.target.value)}
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMaterials((p) => p.filter((_, idx) => idx !== i))}
+                      className="p-2 text-muted-foreground hover:text-destructive mt-0.5 shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Qty</label>
                       <Input
                         type="number"
                         min={0}
-                        placeholder="Qty"
+                        placeholder="2"
                         value={row.qty || ""}
                         onChange={(e) => updateRow(i, "qty", parseFloat(e.target.value) || 0)}
                       />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Unit</label>
                       <Input
-                        placeholder="m², pcs…"
+                        placeholder="bags, m², pcs"
                         value={row.unit}
                         onChange={(e) => updateRow(i, "unit", e.target.value)}
                       />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Unit price (₦)</label>
                       <Input
                         type="number"
                         min={0}
-                        placeholder="Price"
+                        placeholder="5,000"
                         value={row.unitPrice || ""}
                         onChange={(e) => updateRow(i, "unitPrice", parseFloat(e.target.value) || 0)}
                       />
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground w-20 text-right hidden sm:block">
-                          {formatNaira(row.lineTotal)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeRow(i)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="col-span-5 grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 text-sm">
-                      <span className="text-foreground">{row.description}</span>
-                      <span className="text-muted-foreground">{row.qty}</span>
-                      <span className="text-muted-foreground">{row.unit}</span>
-                      <span className="text-muted-foreground">{formatNaira(row.unitPrice)}</span>
-                      <span className="font-medium text-foreground text-right">{formatNaira(row.lineTotal)}</span>
                     </div>
+                  </div>
+                  {row.unitPrice > 0 && row.qty > 0 && (
+                    <p className="text-xs text-right text-muted-foreground">
+                      Line total: <span className="font-semibold text-foreground">{formatNaira(row.lineTotal)}</span>
+                    </p>
                   )}
                 </div>
               ))}
             </div>
+          )}
+        </section>
 
-            {(isArtisan ? materials : existingQuote?.materials ?? []).length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-3">No materials added.</p>
-            )}
+        {/* ── STEP 3: Notes ───────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">3</span>
+            <div>
+              <p className="font-semibold text-foreground">Notes <span className="text-xs font-normal text-muted-foreground">(optional)</span></p>
+              <p className="text-xs text-muted-foreground">Anything the client should know about scope or payment</p>
+            </div>
           </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Price valid for 14 days. Materials not included unless listed above. Work will take approx. 2 days."
+            rows={3}
+            maxLength={1000}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+          />
+        </section>
+      </div>
 
-          {/* Notes */}
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Notes <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            {isArtisan ? (
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any clarifications, payment terms, or scope notes…"
-                rows={3}
-                className="mt-1.5 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-              />
-            ) : existingQuote?.notes ? (
-              <p className="mt-1.5 text-sm text-foreground bg-secondary/50 rounded-xl p-3">
-                {existingQuote.notes}
-              </p>
-            ) : null}
+      {/* ── Totals + Actions ──────────────────────────────────────────────── */}
+      <div className="border-t border-border px-6 py-4 space-y-3 shrink-0">
+        <div className="space-y-1 text-sm">
+          {materialTotal > 0 && (
+            <>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Labour</span>
+                <span>{formatNaira(labourCost)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Materials</span>
+                <span>{formatNaira(materialTotal)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between font-bold text-foreground text-base pt-1 border-t border-border">
+            <span>Total</span>
+            <span>{formatNaira(total)}</span>
           </div>
         </div>
-
-        {/* Totals + Footer */}
-        <div className="border-t border-border p-6 space-y-4">
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Materials subtotal</span>
-              <span>{formatNaira(isArtisan ? materialTotal : existingQuote?.materialTotal ?? 0)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Labour</span>
-              <span>{formatNaira(isArtisan ? (labourCost ?? 0) : existingQuote?.labourCost ?? 0)}</span>
-            </div>
-            <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border">
-              <span>Total</span>
-              <span>{formatNaira(isArtisan ? total : existingQuote?.total ?? 0)}</span>
-            </div>
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onClose} disabled={submitting} className="rounded-xl">
-              {isArtisan ? "Cancel" : "Close"}
-            </Button>
-            {isArtisan && (
-              <Button onClick={handleSend} disabled={submitting} className="rounded-xl">
-                {submitting ? "Sending…" : isEditing ? "Update Quote" : "Send Quote"}
-              </Button>
-            )}
-            {!isArtisan && existingQuote?.status === "sent" && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={handleReject}
-                  disabled={submitting}
-                  className="rounded-xl border-destructive text-destructive hover:bg-destructive/10"
-                >
-                  Reject
-                </Button>
-                <Button onClick={handleAccept} disabled={submitting} className="rounded-xl">
-                  {submitting ? "Accepting…" : "Accept Quote"}
-                </Button>
-              </>
-            )}
-          </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="rounded-xl flex-1">
+            Cancel
+          </Button>
+          <Button onClick={handleSend} disabled={submitting || !canSend} className="rounded-xl flex-1">
+            {submitting ? "Sending…" : isEditing ? "Update & Resend" : "Send Quote"}
+          </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Client: Professional Quote View ──────────────────────────────────────────
+
+function QuoteViewer({
+  quote,
+  jobTitle,
+  clientName,
+  artisanName,
+  artisanAvatarUrl,
+  onClose,
+  onSuccess,
+}: {
+  quote: QuoteData;
+  jobTitle: string;
+  clientName: string;
+  artisanName: string;
+  artisanAvatarUrl?: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const biz = quote.artisanBusiness;
+  const displayName = biz?.name || artisanName;
+  const logo = biz?.logoUrl || artisanAvatarUrl;
+  const isSent = quote.status === "sent";
+
+  const labourTypeMeta: Record<string, string> = {
+    flat:   "Fixed price",
+    hourly: "Per hour",
+    daily:  "Per day",
+    sqm:    "Per m²",
+    unit:   "Per item",
+  };
+
+  const labourQtyLabel: Record<string, string> = {
+    hourly: "hrs",
+    daily:  "days",
+    sqm:    "m²",
+    unit:   "items",
+  };
+
+  const accept = async () => {
+    setSubmitting(true);
+    try {
+      await apiPost(`/quotes/${quote._id}/accept`, {});
+      toast.success("Quote accepted — work can now begin");
+      onSuccess();
+    } catch { toast.error("Failed to accept quote"); }
+    finally { setSubmitting(false); }
+  };
+
+  const reject = async () => {
+    setSubmitting(true);
+    try {
+      await apiPost(`/quotes/${quote._id}/reject`, {});
+      toast.success("Quote rejected — artisan will be notified");
+      onSuccess();
+    } catch { toast.error("Failed to reject quote"); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-xl">
+      {/* Close */}
+      <div className="flex justify-end px-4 pt-4 shrink-0">
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Quote document */}
+      <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
+
+        {/* Letterhead */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {logo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={logo} alt={displayName} className="w-12 h-12 rounded-full object-cover border border-border" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="font-display font-bold text-foreground text-base leading-tight">{displayName}</p>
+              {biz?.tagline && <p className="text-xs text-muted-foreground mt-0.5">{biz.tagline}</p>}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quotation</p>
+            <p className="text-xs text-muted-foreground mt-0.5">v{quote.version} · {fmtDate(quote.sentAt)}</p>
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* Addressed to */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Prepared for</p>
+            <p className="font-medium text-foreground">{clientName}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Job</p>
+            <p className="font-medium text-foreground">{jobTitle}</p>
+          </div>
+        </div>
+
+        {/* Labour */}
+        <div className="bg-secondary/40 rounded-xl p-4 space-y-2">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Labour</p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">{labourTypeMeta[quote.labourType] ?? quote.labourType}</p>
+              {quote.labourType !== "flat" && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formatNaira(quote.labourRate)} × {quote.labourQty} {labourQtyLabel[quote.labourType] ?? "units"}
+                </p>
+              )}
+            </div>
+            <p className="font-semibold text-foreground shrink-0">{formatNaira(quote.labourCost)}</p>
+          </div>
+        </div>
+
+        {/* Materials table */}
+        {quote.materials?.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Materials</p>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/60">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Item</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Qty</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Unit price</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {quote.materials.map((m, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-foreground">
+                        {m.description}
+                        {m.unit && <span className="text-muted-foreground text-xs ml-1">({m.unit})</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">{m.qty}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">{formatNaira(m.unitPrice)}</td>
+                      <td className="px-3 py-2 text-right font-medium text-foreground">{formatNaira(m.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Totals */}
+        <div className="space-y-1.5 text-sm">
+          {(quote.materialTotal ?? 0) > 0 && (
+            <>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Labour</span>
+                <span>{formatNaira(quote.labourCost)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Materials</span>
+                <span>{formatNaira(quote.materialTotal)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between font-bold text-foreground text-base pt-2 border-t border-border">
+            <span>Total</span>
+            <span>{formatNaira(quote.total)}</span>
+          </div>
+        </div>
+
+        {/* Notes */}
+        {quote.notes && (
+          <div className="bg-secondary/40 rounded-xl px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Notes from artisan</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{quote.notes}</p>
+          </div>
+        )}
+
+        {/* Status badge for non-pending quotes */}
+        {!isSent && (
+          <div className={`rounded-xl px-4 py-3 text-center text-sm font-medium ${
+            quote.status === "accepted"
+              ? "bg-success/10 text-success"
+              : "bg-destructive/10 text-destructive"
+          }`}>
+            {quote.status === "accepted" ? "You accepted this quote" : "You rejected this quote"}
+          </div>
+        )}
+      </div>
+
+      {/* Footer actions */}
+      {isSent && (
+        <div className="border-t border-border px-6 py-4 space-y-2 shrink-0">
+          <p className="text-xs text-muted-foreground text-center">
+            Accepting locks in the price — the artisan can start work once you confirm.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={reject}
+              disabled={submitting}
+              className="flex-1 rounded-xl border-destructive text-destructive hover:bg-destructive/10"
+            >
+              Decline
+            </Button>
+            <Button onClick={accept} disabled={submitting} className="flex-1 rounded-xl">
+              {submitting ? "Accepting…" : "Accept Quote"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {!isSent && (
+        <div className="border-t border-border px-6 py-4 shrink-0">
+          <Button variant="outline" onClick={onClose} className="w-full rounded-xl">
+            Close
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Root export ────────────────────────────────────────────────────────────────
+
+export default function QuoteModal(props: QuoteModalProps) {
+  const { role, existingQuote, onClose, ...rest } = props;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
+      {role === "artisan" ? (
+        <QuoteBuilder
+          jobId={props.jobId}
+          jobTitle={props.jobTitle}
+          clientName={props.clientName}
+          existingQuote={existingQuote}
+          onClose={onClose}
+          onSuccess={props.onSuccess}
+        />
+      ) : existingQuote ? (
+        <QuoteViewer
+          quote={existingQuote}
+          jobTitle={props.jobTitle}
+          clientName={props.clientName}
+          artisanName={props.artisanName}
+          artisanAvatarUrl={props.artisanAvatarUrl}
+          onClose={onClose}
+          onSuccess={props.onSuccess}
+        />
+      ) : (
+        <div className="bg-card rounded-2xl p-8 text-center max-w-sm shadow-xl border border-border">
+          <p className="font-semibold text-foreground mb-1">No quote yet</p>
+          <p className="text-sm text-muted-foreground">The artisan hasn&apos;t sent a quote for this job yet.</p>
+          <Button variant="outline" onClick={onClose} className="mt-4 rounded-xl w-full">Close</Button>
+        </div>
+      )}
     </div>
   );
 }

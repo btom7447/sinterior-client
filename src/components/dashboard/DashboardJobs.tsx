@@ -27,7 +27,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { JobActionModal } from "@/components/dashboard/JobActionModal";
-import QuoteModal from "@/components/dashboard/QuoteModal";
+import QuoteModal, { type QuoteData } from "@/components/dashboard/QuoteModal";
 import { toast } from "sonner";
 
 interface ProfileInfo {
@@ -52,11 +52,6 @@ interface Job {
   bookingType?: "urgent" | "scheduled";
   status: "pending" | "quote_pending" | "accepted" | "in_progress" | "completed" | "cancelled";
   paymentStatus?: "pending" | "paid" | "failed";
-  pricingMode?: "daily" | "hourly" | "flat" | "sqm" | "unit";
-  dailyRate?: number;
-  hourlyRate?: number;
-  hoursCharged?: number;
-  daysCharged?: number;
   totalAmount?: number;
   quoteId?: string;
   startedAt?: string;
@@ -75,18 +70,6 @@ interface Job {
   createdAt: string;
 }
 
-interface QuoteData {
-  _id: string;
-  pricingMode: string;
-  labourCost: number;
-  materials: { description: string; qty: number; unit: string; unitPrice: number; lineTotal: number }[];
-  materialTotal: number;
-  total: number;
-  notes?: string;
-  status: string;
-  version: number;
-  sentAt: string;
-}
 
 interface Pagination { page: number; limit: number; total: number; pages: number; }
 
@@ -112,7 +95,6 @@ const CLIENT_TRANSITIONS: Record<string, string[]> = {
   accepted: ["cancelled"],
 };
 
-const QUOTE_MODES = new Set(["flat", "sqm", "unit"]);
 
 export default function DashboardJobs() {
   const { profile } = useAuth();
@@ -195,7 +177,7 @@ export default function DashboardJobs() {
   }, []);
 
   useEffect(() => {
-    if (selected && selected.pricingMode && QUOTE_MODES.has(selected.pricingMode)) {
+    if (selected) {
       fetchQuotes(selected._id);
     } else {
       setQuotes([]);
@@ -493,35 +475,35 @@ export default function DashboardJobs() {
                 </div>
               </div>
 
-              {/* Quote panel — shown for quote-based pricing modes */}
-              {selected.pricingMode && QUOTE_MODES.has(selected.pricingMode) && (
+              {/* Quote panel — visible on all jobs */}
+              {["pending", "quote_pending", "accepted", "in_progress", "completed"].includes(selected.status) && (
                 <div className="border-t border-border pt-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                       <FileText className="w-4 h-4 text-primary" strokeWidth={1} />
                       Quote
                     </p>
-                    {isArtisan && ["accepted", "quote_pending"].includes(selected.status) && (
+                    {isArtisan && ["pending", "accepted", "quote_pending"].includes(selected.status) && (
                       <button
                         onClick={() => setQuoteModal(true)}
                         className="text-xs text-primary font-medium hover:underline"
                       >
-                        {quotes.length > 0 ? "Edit / Resend" : "Send Quote"}
+                        {quotes.find(q => q.status === "sent") ? "Edit / Resend" : "Create Quote"}
                       </button>
                     )}
                   </div>
 
                   {quotesLoading ? (
-                    <p className="text-xs text-muted-foreground">Loading quote…</p>
+                    <p className="text-xs text-muted-foreground">Loading…</p>
                   ) : quotes.length === 0 ? (
                     <div className="p-3 rounded-xl bg-secondary/50 text-sm text-muted-foreground">
                       {isArtisan
-                        ? "No quote sent yet. Accept the job request first, then send a quote."
-                        : "Waiting for the artisan to send a quote."}
+                        ? "No quote sent yet. Create a quote to share your price with the client."
+                        : "No quote received yet. The artisan will send one soon."}
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {quotes.map((q) => {
+                      {quotes.filter(q => q.status !== "superseded").map((q) => {
                         const isSent = q.status === "sent";
                         const isAccepted = q.status === "accepted";
                         const isRejected = q.status === "rejected";
@@ -529,36 +511,22 @@ export default function DashboardJobs() {
                           <div
                             key={q._id}
                             className={`p-3 rounded-xl border text-sm space-y-1.5 ${
-                              isAccepted
-                                ? "border-success/30 bg-success/5"
-                                : isRejected
-                                ? "border-destructive/20 bg-destructive/5 opacity-60"
-                                : "border-border bg-secondary/30"
+                              isAccepted ? "border-success/30 bg-success/5" :
+                              isRejected ? "border-destructive/20 bg-destructive/5 opacity-60" :
+                              "border-border bg-secondary/30"
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-medium text-foreground">
-                                Quote v{q.version}
-                              </span>
+                              <span className="font-medium text-foreground">Quote v{q.version}</span>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                 isAccepted ? "bg-success/20 text-success" :
                                 isRejected ? "bg-destructive/20 text-destructive" :
                                 "bg-primary/10 text-primary"
                               }`}>
-                                {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                                {isSent ? "Awaiting response" : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
                               </span>
                             </div>
-                            <div className="flex justify-between text-muted-foreground">
-                              <span>Labour</span>
-                              <span>{formatNaira(q.labourCost)}</span>
-                            </div>
-                            {q.materialTotal > 0 && (
-                              <div className="flex justify-between text-muted-foreground">
-                                <span>Materials</span>
-                                <span>{formatNaira(q.materialTotal)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1">
+                            <div className="flex justify-between font-semibold text-foreground">
                               <span>Total</span>
                               <span>{formatNaira(q.total)}</span>
                             </div>
@@ -567,7 +535,7 @@ export default function DashboardJobs() {
                                 onClick={() => setQuoteModal(true)}
                                 className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                               >
-                                Review Quote
+                                View & Respond to Quote
                               </button>
                             )}
                           </div>
@@ -683,13 +651,14 @@ export default function DashboardJobs() {
                 )}
 
                 {/* Start approval — UI changes based on whether the caller already approved */}
-                {selected.status === "accepted" && !selected.quoteId && selected.pricingMode && QUOTE_MODES.has(selected.pricingMode) && !isArtisan && (
+                {/* Client sees this when quote not yet accepted */}
+                {selected.status === "accepted" && !selected.quoteId && !isArtisan && (
                   <div className="p-3 rounded-xl border border-warning/20 bg-warning/5 flex items-center gap-3">
                     <FileText className="w-4 h-4 text-warning shrink-0" strokeWidth={1} />
-                    <p className="text-sm text-foreground">Waiting for the artisan to send a quote before work can begin.</p>
+                    <p className="text-sm text-foreground">Waiting for the artisan to send a quote. Accept it to lock in the price before work begins.</p>
                   </div>
                 )}
-                {selected.status === "accepted" && !(selected.pricingMode && QUOTE_MODES.has(selected.pricingMode) && !selected.quoteId) && (() => {
+                {selected.status === "accepted" && !!selected.quoteId && (() => {
                   const myApproved = isArtisan ? selected.artisanStartApproved : selected.clientStartApproved;
                   const otherApproved = isArtisan ? selected.clientStartApproved : selected.artisanStartApproved;
                   const otherLabel = isArtisan ? "client" : "artisan";
@@ -1138,14 +1107,11 @@ export default function DashboardJobs() {
         <QuoteModal
           jobId={selected._id}
           jobTitle={selected.title}
+          clientName={selected.clientId?.fullName}
           artisanName={selected.artisanId?.fullName}
-          pricingMode={selected.pricingMode ?? "flat"}
+          artisanAvatarUrl={resolveAssetUrl(selected.artisanId?.avatarUrl || "")}
           role={isArtisan ? "artisan" : "client"}
-          existingQuote={
-            isArtisan
-              ? (quotes.find((q) => q.status === "sent") ?? null)
-              : (quotes.find((q) => q.status === "sent") ?? null)
-          }
+          existingQuote={quotes.find((q) => q.status === "sent") ?? null}
           onClose={() => setQuoteModal(false)}
           onSuccess={() => {
             setQuoteModal(false);

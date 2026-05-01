@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { apiGet, apiPatch, apiPost, apiUpload } from "@/lib/apiClient";
+import { useEffect, useRef, useState } from "react";
+import { apiGet, apiPatch, apiUpload } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NairaInput } from "@/components/ui/NairaInput";
 import LocationPicker from "@/components/location/LocationPicker";
-import { Award, Camera, Calendar, Clock, Hash, MapPin, Ruler, Save, Tag, Upload, Wrench, X } from "lucide-react";
+import { Award, Building2, Camera, MapPin, Save, Upload, Wrench, X } from "lucide-react";
 import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
@@ -26,9 +25,8 @@ interface ArtisanProfile {
   _id: string;
   skill?: string;
   skillCategory?: string;
-  pricingModes?: string[];
-  pricePerDay?: number;
-  pricePerHour?: number;
+  businessName?: string;
+  businessTagline?: string;
   experienceYears?: number;
   serviceRadiusKm?: number;
   city?: string;
@@ -48,7 +46,7 @@ interface ArtisanProfile {
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const TABS = [
-  { id: "overview", label: "Overview & Pricing" },
+  { id: "overview", label: "Overview" },
   { id: "portfolio", label: "Portfolio" },
   { id: "certifications", label: "Certifications" },
   { id: "availability", label: "Availability" },
@@ -161,14 +159,6 @@ export default function ArtisanProfilePage() {
   );
 }
 
-const PRICING_MODE_META: Record<string, { icon: React.ElementType; label: string; desc: string }> = {
-  daily:  { icon: Calendar, label: "Daily",     desc: "Charge per working day" },
-  hourly: { icon: Clock,    label: "Hourly",    desc: "Charge per hour worked" },
-  flat:   { icon: Tag,      label: "Flat rate", desc: "One fixed price per job" },
-  sqm:    { icon: Ruler,    label: "Per m²",    desc: "Price by area (flooring, painting…)" },
-  unit:   { icon: Hash,     label: "Per unit",  desc: "Price per item / door / fixture" },
-};
-
 function OverviewTab({
   data,
   onSave,
@@ -178,8 +168,6 @@ function OverviewTab({
   onSave: (body: Partial<ArtisanProfile>) => Promise<void>;
   saving: boolean;
 }) {
-  // Categories are matched by `name` (legacy free-text from before the cascade
-  // was wired up). Find by name OR id so older profiles still resolve.
   const initialCategoryName =
     ARTISAN_SKILL_CATEGORIES.find(
       (c) => c.name === data.skillCategory || c.id === data.skillCategory
@@ -187,77 +175,48 @@ function OverviewTab({
 
   const [skillCategory, setSkillCategory] = useState(initialCategoryName);
   const [skill, setSkill] = useState(data.skill || "");
-  const [pricingModes, setPricingModes] = useState<string[]>(data.pricingModes ?? []);
-  const [pricePerDay, setPricePerDay] = useState<number | null>(data.pricePerDay ?? null);
-  const [pricePerHour, setPricePerHour] = useState<number | null>(data.pricePerHour ?? null);
+  const [businessName, setBusinessName] = useState(data.businessName || "");
+  const [businessTagline, setBusinessTagline] = useState(data.businessTagline || "");
   const [experienceYears, setExperienceYears] = useState(data.experienceYears ?? 0);
   const [isAvailable, setIsAvailable] = useState(data.isAvailable !== false);
 
   const selectedCategory = ARTISAN_SKILL_CATEGORIES.find((c) => c.name === skillCategory);
   const skillsForCategory = selectedCategory?.skills || [];
-
   const skillOptions =
     skill && !skillsForCategory.includes(skill)
       ? [...skillsForCategory, skill]
       : skillsForCategory;
 
-  const toggleMode = (m: string) =>
-    setPricingModes((prev) =>
-      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
-    );
-
-  const canSave =
-    pricingModes.length === 0 ||
-    ((!pricingModes.includes("daily") || (pricePerDay != null && pricePerDay > 0)) &&
-      (!pricingModes.includes("hourly") || (pricePerHour != null && pricePerHour > 0)));
-
   return (
     <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Category
-          </Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category</Label>
           <select
             value={skillCategory}
-            onChange={(e) => {
-              setSkillCategory(e.target.value);
-              setSkill("");
-            }}
+            onChange={(e) => { setSkillCategory(e.target.value); setSkill(""); }}
             className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="">Select category</option>
             {ARTISAN_SKILL_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.name}>{c.name}</option>
             ))}
           </select>
         </div>
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Primary skill
-          </Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Primary skill</Label>
           <select
             value={skill}
             onChange={(e) => setSkill(e.target.value)}
             disabled={!skillCategory}
             className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
           >
-            <option value="">
-              {skillCategory ? "Select skill" : "Select a category first"}
-            </option>
-            {skillOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            <option value="">{skillCategory ? "Select skill" : "Select a category first"}</option>
+            {skillOptions.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Years of experience
-          </Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Years of experience</Label>
           <Input
             type="number"
             min={0}
@@ -269,63 +228,38 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Pricing modes */}
+      {/* Business identity */}
       <div>
-        <p className="text-sm font-semibold text-foreground mb-1">Pricing modes</p>
+        <div className="flex items-center gap-2 mb-1">
+          <Building2 className="w-4 h-4 text-primary" strokeWidth={1.5} />
+          <p className="text-sm font-semibold text-foreground">Business identity</p>
+        </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Select all that apply. Clients will see these on your profile.
+          Shown at the top of every quote you send clients.
         </p>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {Object.entries(PRICING_MODE_META).map(([id, meta]) => {
-            const Icon = meta.icon;
-            const active = pricingModes.includes(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => toggleMode(id)}
-                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${
-                  active
-                    ? "border-primary bg-primary/5 text-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
-                }`}
-              >
-                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? "text-primary" : ""}`} strokeWidth={1.5} />
-                <div>
-                  <p className={`text-sm font-medium ${active ? "text-foreground" : ""}`}>{meta.label}</p>
-                  <p className="text-xs">{meta.desc}</p>
-                </div>
-              </button>
-            );
-          })}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Business name</Label>
+            <Input
+              placeholder="e.g. Emeka Electrical Services"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              maxLength={100}
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Tagline</Label>
+            <Input
+              placeholder="e.g. Fast, clean, guaranteed."
+              value={businessTagline}
+              onChange={(e) => setBusinessTagline(e.target.value)}
+              maxLength={200}
+              className="mt-1.5"
+            />
+          </div>
         </div>
       </div>
-
-      {/* Conditional rate inputs */}
-      {(pricingModes.includes("daily") || pricingModes.includes("hourly")) && (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {pricingModes.includes("daily") && (
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Daily rate (₦) <span className="text-destructive">*</span>
-              </Label>
-              <div className="mt-1.5">
-                <NairaInput value={pricePerDay} onChange={setPricePerDay} placeholder="e.g. 25,000" />
-              </div>
-            </div>
-          )}
-          {pricingModes.includes("hourly") && (
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Hourly rate (₦) <span className="text-destructive">*</span>
-              </Label>
-              <div className="mt-1.5">
-                <NairaInput value={pricePerHour} onChange={setPricePerHour} placeholder="e.g. 5,000" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       <label className="flex items-center gap-3 cursor-pointer">
         <input
@@ -336,9 +270,7 @@ function OverviewTab({
         />
         <div>
           <p className="text-sm font-medium text-foreground">Currently accepting jobs</p>
-          <p className="text-xs text-muted-foreground">
-            Turn off when you&apos;re fully booked or on leave.
-          </p>
+          <p className="text-xs text-muted-foreground">Turn off when you&apos;re fully booked or on leave.</p>
         </div>
       </label>
 
@@ -348,14 +280,13 @@ function OverviewTab({
             onSave({
               skill: skill.trim(),
               skillCategory: skillCategory.trim(),
-              pricingModes,
-              pricePerDay: pricingModes.includes("daily") ? (pricePerDay ?? 0) : undefined,
-              pricePerHour: pricingModes.includes("hourly") ? (pricePerHour ?? 0) : undefined,
+              businessName: businessName.trim() || undefined,
+              businessTagline: businessTagline.trim() || undefined,
               experienceYears,
               isAvailable,
             })
           }
-          disabled={saving || !canSave}
+          disabled={saving}
           className="rounded-xl gap-1.5"
         >
           <Save className="w-4 h-4" strokeWidth={1} />
