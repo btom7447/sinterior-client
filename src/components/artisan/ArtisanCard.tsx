@@ -1,11 +1,74 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, ShieldCheck, ShieldOff, Navigation, Ban } from "lucide-react";
+import {
+  Star, MapPin, ShieldCheck, ShieldOff, Navigation, Ban,
+  Clock, Calendar, Tag, Ruler, Hash,
+} from "lucide-react";
 import { type ApiArtisan, formatNaira, resolveAssetUrl } from "@/types/api";
 
 interface ArtisanCardProps {
   artisan: ApiArtisan;
+}
+
+const MODE_META: Record<string, { icon: React.ElementType; label: string }> = {
+  daily:  { icon: Calendar, label: "Daily" },
+  hourly: { icon: Clock,    label: "Hourly" },
+  flat:   { icon: Tag,      label: "Flat rate" },
+  sqm:    { icon: Ruler,    label: "Per m²" },
+  unit:   { icon: Hash,     label: "Per unit" },
+};
+
+function PricingDisplay({ artisan }: { artisan: ApiArtisan }) {
+  const modes = artisan.pricingModes ?? [];
+  const rates: number[] = [];
+  if (artisan.pricePerDay)  rates.push(artisan.pricePerDay);
+  if (artisan.pricePerHour) rates.push(artisan.pricePerHour);
+  const fromRate = rates.length > 0 ? Math.min(...rates) : null;
+  const rateUnit =
+    fromRate === artisan.pricePerHour && fromRate !== artisan.pricePerDay
+      ? "/ hr"
+      : fromRate !== null
+      ? "/ day"
+      : null;
+
+  return (
+    <div className="pt-4 border-t border-border">
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          {fromRate !== null ? (
+            <>
+              <span className="font-display font-bold text-lg text-foreground">
+                From {formatNaira(fromRate)}
+              </span>
+              <span className="text-muted-foreground text-sm ml-1">{rateUnit}</span>
+            </>
+          ) : (
+            <span className="font-medium text-sm text-muted-foreground">Quote only</span>
+          )}
+        </div>
+      </div>
+      {modes.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {modes.map((m) => {
+            const meta = MODE_META[m];
+            if (!meta) return null;
+            const Icon = meta.icon;
+            return (
+              <span
+                key={m}
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground"
+                title={meta.label}
+              >
+                <Icon className="w-3 h-3" strokeWidth={1.5} />
+                {meta.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
@@ -78,22 +141,17 @@ const ArtisanCard = ({ artisan }: ArtisanCardProps) => {
             {artisan.reviewCount || 0} reviews
           </p>
 
-          <div className="pt-4 border-t border-border flex items-center justify-between">
-            <div>
-              <span className="font-display font-bold text-lg text-foreground">
-                {artisan.pricePerDay ? formatNaira(artisan.pricePerDay) : "Contact for pricing"}
-              </span>
-              {artisan.pricePerDay && (
-                <span className="text-muted-foreground text-sm ml-1">per day</span>
+          <div className="flex items-end justify-between">
+            <PricingDisplay artisan={artisan} />
+            <div className="ml-3 shrink-0">
+              {isSuspended ? (
+                <Button size="sm" variant="outline" disabled className="rounded-lg">
+                  Unavailable
+                </Button>
+              ) : (
+                <Button size="sm" className="rounded-lg">Book Now</Button>
               )}
             </div>
-            {isSuspended ? (
-              <Button size="sm" variant="outline" disabled className="rounded-lg">
-                Unavailable
-              </Button>
-            ) : (
-              <Button size="sm" className="rounded-lg">Book Now</Button>
-            )}
           </div>
         </div>
       </div>

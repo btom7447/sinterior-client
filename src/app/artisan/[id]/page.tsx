@@ -14,6 +14,7 @@ import {
   Star, MapPin, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
   Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle, Ban,
+  Tag, Ruler, Hash,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const [reviews, setReviews] = useState<ArtisanReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingType, setBookingType] = useState<"urgent" | "scheduled">("urgent");
+  const [pricingMode, setPricingMode] = useState<string>("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +43,9 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
       try {
         const res = await apiGet<{ data: { artisan: ApiArtisan } }>(`/artisans/${id}`);
         setArtisan(res.data.artisan);
+        // Pre-select first available pricing mode.
+        const modes = res.data.artisan?.pricingModes ?? [];
+        if (modes.length > 0) setPricingMode(modes[0]);
 
         // Fetch the artisan's reviews — keyed by their Profile._id, not the
         // ArtisanProfile._id passed in the URL.
@@ -81,20 +86,21 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
     }
     setSubmitting(true);
     try {
-      const res = await apiPost<{ data: { job: { _id: string } } }>("/jobs", {
+      await apiPost<{ data: { job: { _id: string } } }>("/jobs", {
         artisanId: artisan.profileId._id,
         bookingType,
+        pricingMode: pricingMode || "daily",
         scheduledDate: bookingType === "scheduled" ? scheduledDate : undefined,
       });
+      const isQuoteMode = ["flat", "sqm", "unit"].includes(pricingMode);
       toast.success(
-        bookingType === "urgent"
+        isQuoteMode
+          ? "Request sent. The artisan will review and send you a quote."
+          : bookingType === "urgent"
           ? "Urgent request sent. The artisan will be notified now."
           : "Booking sent. You'll see it under Appointments once accepted."
       );
-      // Drop the user straight into chat so they can sort out the details there.
-      const jobId = res.data?.job?._id;
-      if (jobId) router.push(`/dashboard/chat?jobId=${jobId}`);
-      else router.push("/dashboard/jobs");
+      router.push("/dashboard/jobs");
       setScheduledDate("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send job request.");
@@ -205,12 +211,46 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                       <span className="font-bold text-lg">{artisan.rating || "New"}</span>
                       <span className="text-muted-foreground text-sm">({artisan.reviewCount || 0} reviews)</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-display font-bold text-2xl text-foreground">
-                        {artisan.pricePerDay ? formatNaira(artisan.pricePerDay) : "Contact for pricing"}
-                      </span>
-                      {artisan.pricePerDay && <span className="text-muted-foreground text-sm ml-1">/day</span>}
-                    </div>
+                    {/* Pricing summary */}
+                    {(() => {
+                      const modes = artisan.pricingModes ?? [];
+                      const rates: number[] = [];
+                      if (artisan.pricePerDay)  rates.push(artisan.pricePerDay);
+                      if (artisan.pricePerHour) rates.push(artisan.pricePerHour);
+                      const from = rates.length > 0 ? Math.min(...rates) : null;
+                      const unit = from === artisan.pricePerHour && from !== artisan.pricePerDay ? "/ hr" : "/ day";
+                      const modeMeta: Record<string, { icon: React.ElementType; label: string }> = {
+                        daily: { icon: Calendar, label: "Daily" },
+                        hourly: { icon: Clock, label: "Hourly" },
+                        flat: { icon: Tag, label: "Flat rate" },
+                        sqm: { icon: Ruler, label: "Per m²" },
+                        unit: { icon: Hash, label: "Per unit" },
+                      };
+                      return (
+                        <div className="text-right space-y-1.5">
+                          <div>
+                            <span className="font-display font-bold text-2xl text-foreground">
+                              {from ? `From ${formatNaira(from)}` : "Quote only"}
+                            </span>
+                            {from && <span className="text-muted-foreground text-sm ml-1">{unit}</span>}
+                          </div>
+                          {modes.length > 0 && (
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {modes.map((m) => {
+                                const meta = modeMeta[m];
+                                if (!meta) return null;
+                                const Icon = meta.icon;
+                                return (
+                                  <span key={m} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                                    <Icon className="w-3 h-3" strokeWidth={1.5} />{meta.label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 {bio && <p className="text-muted-foreground mt-4 leading-relaxed max-w-2xl">{bio}</p>}
@@ -383,6 +423,35 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                 </div>
               ) : (
                 <form onSubmit={handleHireSubmit} className="space-y-4">
+                  {/* Pricing mode selector */}
+                  {(artisan.pricingModes ?? []).length > 1 && (
+                    <div>
+                      <p className="text-sm font-medium text-foreground mb-2">How would you like to be charged?</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(artisan.pricingModes ?? []).map((m) => {
+                          const labels: Record<string, string> = {
+                            daily: "Per Day", hourly: "Per Hour",
+                            flat: "Flat Rate", sqm: "Per m²", unit: "Per Unit",
+                          };
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setPricingMode(m)}
+                              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                                pricingMode === m
+                                  ? "border-primary bg-primary/5 text-primary font-medium"
+                                  : "border-border text-muted-foreground hover:border-primary/30"
+                              }`}
+                            >
+                              {labels[m] ?? m}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Urgent vs Scheduled choice */}
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -429,16 +498,30 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
                   )}
 
                   {/* Pricing note */}
-                  {artisan.pricePerDay && (
-                    <div className="p-3 rounded-xl bg-secondary/40 text-xs text-muted-foreground">
-                      You&apos;ll be charged <strong className="text-foreground">{formatNaira(artisan.pricePerDay)}/day</strong> for every day this job stays in progress. Both of you confirm start and end.
-                    </div>
-                  )}
+                  <div className="p-3 rounded-xl bg-secondary/40 text-xs text-muted-foreground">
+                    {pricingMode === "daily" && artisan.pricePerDay && (
+                      <>You&apos;ll be charged <strong className="text-foreground">{formatNaira(artisan.pricePerDay)}/day</strong> for every day this job is in progress.</>
+                    )}
+                    {pricingMode === "hourly" && artisan.pricePerHour && (
+                      <>You&apos;ll be charged <strong className="text-foreground">{formatNaira(artisan.pricePerHour)}/hr</strong> for the hours worked.</>
+                    )}
+                    {["flat", "sqm", "unit"].includes(pricingMode) && (
+                      <>The artisan will review your request and send you a <strong className="text-foreground">quote</strong>. You&apos;ll agree on the price before work begins.</>
+                    )}
+                    {!pricingMode && <>Select a pricing mode above to see how you&apos;ll be charged.</>}
+                  </div>
 
-                  <Button type="submit" disabled={submitting} className="w-full rounded-xl" size="lg">
+                  <Button
+                    type="submit"
+                    disabled={submitting || !pricingMode}
+                    className="w-full rounded-xl"
+                    size="lg"
+                  >
                     <Hammer strokeWidth={1} className="w-4 h-4 mr-2" />
                     {submitting
-                      ? "Sending Request..."
+                      ? "Sending..."
+                      : ["flat", "sqm", "unit"].includes(pricingMode)
+                      ? "Request Quote"
                       : bookingType === "urgent"
                       ? "Send Urgent Request"
                       : "Send Booking Request"}

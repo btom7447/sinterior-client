@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { apiGet, apiPatch, apiPost, apiUpload } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NairaInput } from "@/components/ui/NairaInput";
 import LocationPicker from "@/components/location/LocationPicker";
-import { Award, Camera, MapPin, Save, Upload, Wrench, X } from "lucide-react";
+import { Award, Camera, Calendar, Clock, Hash, MapPin, Ruler, Save, Tag, Upload, Wrench, X } from "lucide-react";
 import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
@@ -26,7 +26,9 @@ interface ArtisanProfile {
   _id: string;
   skill?: string;
   skillCategory?: string;
+  pricingModes?: string[];
   pricePerDay?: number;
+  pricePerHour?: number;
   experienceYears?: number;
   serviceRadiusKm?: number;
   city?: string;
@@ -159,6 +161,14 @@ export default function ArtisanProfilePage() {
   );
 }
 
+const PRICING_MODE_META: Record<string, { icon: React.ElementType; label: string; desc: string }> = {
+  daily:  { icon: Calendar, label: "Daily",     desc: "Charge per working day" },
+  hourly: { icon: Clock,    label: "Hourly",    desc: "Charge per hour worked" },
+  flat:   { icon: Tag,      label: "Flat rate", desc: "One fixed price per job" },
+  sqm:    { icon: Ruler,    label: "Per m²",    desc: "Price by area (flooring, painting…)" },
+  unit:   { icon: Hash,     label: "Per unit",  desc: "Price per item / door / fixture" },
+};
+
 function OverviewTab({
   data,
   onSave,
@@ -177,19 +187,29 @@ function OverviewTab({
 
   const [skillCategory, setSkillCategory] = useState(initialCategoryName);
   const [skill, setSkill] = useState(data.skill || "");
+  const [pricingModes, setPricingModes] = useState<string[]>(data.pricingModes ?? []);
   const [pricePerDay, setPricePerDay] = useState<number | null>(data.pricePerDay ?? null);
+  const [pricePerHour, setPricePerHour] = useState<number | null>(data.pricePerHour ?? null);
   const [experienceYears, setExperienceYears] = useState(data.experienceYears ?? 0);
   const [isAvailable, setIsAvailable] = useState(data.isAvailable !== false);
 
   const selectedCategory = ARTISAN_SKILL_CATEGORIES.find((c) => c.name === skillCategory);
   const skillsForCategory = selectedCategory?.skills || [];
 
-  // If the persisted skill isn't in the chosen category, surface it as a "(custom)" option
-  // so we don't silently drop it on save.
   const skillOptions =
     skill && !skillsForCategory.includes(skill)
       ? [...skillsForCategory, skill]
       : skillsForCategory;
+
+  const toggleMode = (m: string) =>
+    setPricingModes((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
+    );
+
+  const canSave =
+    pricingModes.length === 0 ||
+    ((!pricingModes.includes("daily") || (pricePerDay != null && pricePerDay > 0)) &&
+      (!pricingModes.includes("hourly") || (pricePerHour != null && pricePerHour > 0)));
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
@@ -202,7 +222,7 @@ function OverviewTab({
             value={skillCategory}
             onChange={(e) => {
               setSkillCategory(e.target.value);
-              setSkill(""); // reset skill when category changes
+              setSkill("");
             }}
             className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
@@ -236,18 +256,6 @@ function OverviewTab({
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Daily rate
-          </Label>
-          <div className="mt-1.5">
-            <NairaInput
-              value={pricePerDay}
-              onChange={setPricePerDay}
-              placeholder="e.g. 25,000"
-            />
-          </div>
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
             Years of experience
           </Label>
           <Input
@@ -260,6 +268,64 @@ function OverviewTab({
           />
         </div>
       </div>
+
+      {/* Pricing modes */}
+      <div>
+        <p className="text-sm font-semibold text-foreground mb-1">Pricing modes</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Select all that apply. Clients will see these on your profile.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {Object.entries(PRICING_MODE_META).map(([id, meta]) => {
+            const Icon = meta.icon;
+            const active = pricingModes.includes(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => toggleMode(id)}
+                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${
+                  active
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? "text-primary" : ""}`} strokeWidth={1.5} />
+                <div>
+                  <p className={`text-sm font-medium ${active ? "text-foreground" : ""}`}>{meta.label}</p>
+                  <p className="text-xs">{meta.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Conditional rate inputs */}
+      {(pricingModes.includes("daily") || pricingModes.includes("hourly")) && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {pricingModes.includes("daily") && (
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Daily rate (₦) <span className="text-destructive">*</span>
+              </Label>
+              <div className="mt-1.5">
+                <NairaInput value={pricePerDay} onChange={setPricePerDay} placeholder="e.g. 25,000" />
+              </div>
+            </div>
+          )}
+          {pricingModes.includes("hourly") && (
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Hourly rate (₦) <span className="text-destructive">*</span>
+              </Label>
+              <div className="mt-1.5">
+                <NairaInput value={pricePerHour} onChange={setPricePerHour} placeholder="e.g. 5,000" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <label className="flex items-center gap-3 cursor-pointer">
         <input
@@ -282,12 +348,14 @@ function OverviewTab({
             onSave({
               skill: skill.trim(),
               skillCategory: skillCategory.trim(),
-              pricePerDay: pricePerDay ?? 0,
+              pricingModes,
+              pricePerDay: pricingModes.includes("daily") ? (pricePerDay ?? 0) : undefined,
+              pricePerHour: pricingModes.includes("hourly") ? (pricePerHour ?? 0) : undefined,
               experienceYears,
               isAvailable,
             })
           }
-          disabled={saving}
+          disabled={saving || !canSave}
           className="rounded-xl gap-1.5"
         >
           <Save className="w-4 h-4" strokeWidth={1} />

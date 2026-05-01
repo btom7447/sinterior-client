@@ -73,7 +73,9 @@ export interface ApiArtisan {
   skillCategory: string;
   city: string;
   state: string;
+  pricingModes: string[];
   pricePerDay: number | null;
+  pricePerHour: number | null;
   experienceYears?: number;
   isAvailable: boolean;
   isVerified?: boolean;

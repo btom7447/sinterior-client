@@ -7,6 +7,7 @@ import Image from "next/image";
 import {
   ArrowLeft, ArrowRight, Camera, Plus, X, Check,
   Clock, Award, MapPin, Wrench, Upload,
+  DollarSign, Calendar, Tag, Ruler, Hash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,11 +43,20 @@ const TOOLS_SUGGESTIONS = [
 ];
 
 const steps = [
-  { number: 1, title: "Specialty", description: "What do you do?", icon: Wrench },
-  { number: 2, title: "Portfolio", description: "Show your best work", icon: Camera },
-  { number: 3, title: "Certifications", description: "Your qualifications", icon: Award },
-  { number: 4, title: "Availability", description: "When can clients reach you?", icon: Clock },
-  { number: 5, title: "Service Details", description: "Area & equipment", icon: Wrench },
+  { number: 1, title: "Specialty",     description: "What do you do?",            icon: Wrench },
+  { number: 2, title: "Pricing",       description: "How you charge clients",      icon: DollarSign },
+  { number: 3, title: "Portfolio",     description: "Show your best work",         icon: Camera },
+  { number: 4, title: "Certifications",description: "Your qualifications",         icon: Award },
+  { number: 5, title: "Availability",  description: "When can clients reach you?", icon: Clock },
+  { number: 6, title: "Service Details",description: "Area & equipment",           icon: Wrench },
+];
+
+const PRICING_MODE_META = [
+  { id: "daily",  icon: Calendar,  label: "Per Day",   desc: "Fixed rate per calendar day. Billed by the day clock." },
+  { id: "hourly", icon: Clock,     label: "Per Hour",  desc: "Billed by hours worked — ideal when job duration varies." },
+  { id: "flat",   icon: Tag,       label: "Flat Rate", desc: "One quoted price for the whole job." },
+  { id: "sqm",    icon: Ruler,     label: "Per m²",    desc: "Common for flooring, tiling, painting and plastering." },
+  { id: "unit",   icon: Hash,      label: "Per Unit",  desc: "Price per item — doors, windows, sockets, etc." },
 ];
 
 // ─── Step components ───────────────────────────────────────────────────────────
@@ -371,17 +381,93 @@ function AvailabilityStep({
   );
 }
 
+function PricingStep({
+  pricingModes, setPricingModes,
+  pricePerDay, setPricePerDay,
+  pricePerHour, setPricePerHour,
+}: {
+  pricingModes: string[];
+  setPricingModes: (v: string[]) => void;
+  pricePerDay: number | null;
+  setPricePerDay: (v: number | null) => void;
+  pricePerHour: number | null;
+  setPricePerHour: (v: number | null) => void;
+}) {
+  const toggleMode = (id: string) => {
+    setPricingModes(
+      pricingModes.includes(id) ? pricingModes.filter((m) => m !== id) : [...pricingModes, id]
+    );
+  };
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold text-foreground mb-1">How do you charge?</h2>
+      <p className="text-muted-foreground mb-6">
+        Pick every pricing mode you offer. Clients will see these on your profile and select one when hiring you.
+      </p>
+
+      <div className="space-y-3 mb-6">
+        {PRICING_MODE_META.map(({ id, icon: Icon, label, desc }) => {
+          const active = pricingModes.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggleMode(id)}
+              className={`w-full text-left flex items-start gap-4 p-4 rounded-xl border transition-colors ${
+                active
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/30"
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                <Icon strokeWidth={1.5} className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+              </div>
+              {active && <Check className="w-4 h-4 text-primary shrink-0 mt-1" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {pricingModes.includes("daily") && (
+        <div className="mb-4">
+          <label className="text-sm font-semibold text-foreground mb-1 block">Daily rate (₦)</label>
+          <p className="text-xs text-muted-foreground mb-2">What you charge per day. Locked in when client hires.</p>
+          <NairaInput value={pricePerDay} onChange={setPricePerDay} placeholder="e.g. 25,000" className="rounded-xl" />
+        </div>
+      )}
+
+      {pricingModes.includes("hourly") && (
+        <div className="mb-4">
+          <label className="text-sm font-semibold text-foreground mb-1 block">Hourly rate (₦)</label>
+          <p className="text-xs text-muted-foreground mb-2">What you charge per hour. Billed by the clock.</p>
+          <NairaInput value={pricePerHour} onChange={setPricePerHour} placeholder="e.g. 3,500" className="rounded-xl" />
+        </div>
+      )}
+
+      {pricingModes.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded-xl">
+          Select at least one pricing mode to continue.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ServiceDetailsStep({
   radius, setRadius, tools, setTools, extraSkills, setExtraSkills,
   latitude, longitude, setLatitude, setLongitude,
-  pricePerDay, setPricePerDay, address, setAddress,
+  address, setAddress,
 }: {
   radius: number; setRadius: (v: number) => void;
   tools: string[]; setTools: (v: string[]) => void;
   extraSkills: string[]; setExtraSkills: (v: string[]) => void;
   latitude: number | null; longitude: number | null;
   setLatitude: (v: number | null) => void; setLongitude: (v: number | null) => void;
-  pricePerDay: number | null; setPricePerDay: (v: number | null) => void;
   address: string; setAddress: (v: string) => void;
 }) {
   const [toolInput, setToolInput] = useState("");
@@ -403,20 +489,6 @@ function ServiceDetailsStep({
     <div>
       <h2 className="font-display text-2xl font-bold text-foreground mb-1">Service details</h2>
       <p className="text-muted-foreground mb-6">Help clients know how far you travel and what equipment you bring.</p>
-
-      {/* Daily rate */}
-      <div className="mb-6">
-        <p className="text-sm font-semibold text-foreground mb-2">Your daily rate</p>
-        <p className="text-xs text-muted-foreground mb-2">
-          What clients pay you per day. We charge this for every day the job is in progress.
-        </p>
-        <NairaInput
-          value={pricePerDay}
-          onChange={setPricePerDay}
-          placeholder="e.g. 25,000"
-          className="rounded-xl"
-        />
-      </div>
 
       {/* Location picker */}
       <div className="mb-6">
@@ -527,24 +599,27 @@ export default function ArtisanOnboardingPage() {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  // Step 1 — Specialty (skill category + primary skill)
+  // Step 1 — Specialty
   const [skillCategory, setSkillCategory] = useState("");
   const [skill, setSkill] = useState("");
-  // Step 2 — Portfolio
+  // Step 2 — Pricing
+  const [pricingModes, setPricingModes] = useState<string[]>([]);
+  const [pricePerDay, setPricePerDay] = useState<number | null>(null);
+  const [pricePerHour, setPricePerHour] = useState<number | null>(null);
+  // Step 3 — Portfolio
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
-  // Step 3 — Certifications
+  // Step 4 — Certifications
   const [certs, setCerts] = useState<Certification[]>([]);
-  // Step 4 — Availability
+  // Step 5 — Availability
   const [availDays, setAvailDays] = useState<string[]>(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("18:00");
-  // Step 5 — Service Details
+  // Step 6 — Service Details
   const [radius, setRadius] = useState(20);
   const [tools, setTools] = useState<string[]>([]);
   const [extraSkills, setExtraSkills] = useState<string[]>([]);
   const [artisanLat, setArtisanLat] = useState<number | null>(null);
   const [artisanLng, setArtisanLng] = useState<number | null>(null);
-  const [pricePerDay, setPricePerDay] = useState<number | null>(null);
   const [address, setAddress] = useState("");
 
   // Pre-fill specialty from /artisans/me on mount so users who already set it
@@ -595,7 +670,7 @@ export default function ArtisanOnboardingPage() {
           })
         );
 
-        // 3. Save onboarding metadata (portfolio already saved by upload, save certs + rest)
+        // 3. Save onboarding metadata
         await apiPatch("/artisans/onboarding", {
           certifications: certData,
           availableDays: availDays,
@@ -604,7 +679,9 @@ export default function ArtisanOnboardingPage() {
           serviceRadiusKm: radius,
           tools,
           additionalSkills: extraSkills,
+          pricingModes,
           ...(pricePerDay != null ? { pricePerDay } : {}),
+          ...(pricePerHour != null ? { pricePerHour } : {}),
           ...(address ? { address } : {}),
           ...(skill ? { skill } : {}),
           ...(skillCategory ? { skillCategory } : {}),
@@ -628,6 +705,7 @@ export default function ArtisanOnboardingPage() {
   };
 
   const rightPanelContent = [
+    { heading: "Set how you charge", body: "Clients see your pricing modes and select one when hiring. Rates you set here are locked in at hire time." },
     { heading: "Show clients your best work", body: "Artisans with portfolio photos receive 3× more enquiries than those without." },
     { heading: "Credentials build trust", body: "Clients are 60% more likely to hire artisans with verified certifications." },
     { heading: "Match the right jobs", body: "Setting your availability helps us show your profile at the right times." },
@@ -684,23 +762,32 @@ export default function ArtisanOnboardingPage() {
                 setSkill={setSkill}
               />
             )}
-            {step === 2 && <PortfolioStep items={portfolio} setItems={setPortfolio} />}
-            {step === 3 && <CertificationsStep certs={certs} setCerts={setCerts} />}
-            {step === 4 && (
+            {step === 2 && (
+              <PricingStep
+                pricingModes={pricingModes}
+                setPricingModes={setPricingModes}
+                pricePerDay={pricePerDay}
+                setPricePerDay={setPricePerDay}
+                pricePerHour={pricePerHour}
+                setPricePerHour={setPricePerHour}
+              />
+            )}
+            {step === 3 && <PortfolioStep items={portfolio} setItems={setPortfolio} />}
+            {step === 4 && <CertificationsStep certs={certs} setCerts={setCerts} />}
+            {step === 5 && (
               <AvailabilityStep
                 days={availDays} setDays={setAvailDays}
                 startTime={startTime} setStartTime={setStartTime}
                 endTime={endTime} setEndTime={setEndTime}
               />
             )}
-            {step === 5 && (
+            {step === 6 && (
               <ServiceDetailsStep
                 radius={radius} setRadius={setRadius}
                 tools={tools} setTools={setTools}
                 extraSkills={extraSkills} setExtraSkills={setExtraSkills}
                 latitude={artisanLat} longitude={artisanLng}
                 setLatitude={setArtisanLat} setLongitude={setArtisanLng}
-                pricePerDay={pricePerDay} setPricePerDay={setPricePerDay}
                 address={address} setAddress={setAddress}
               />
             )}
@@ -715,7 +802,15 @@ export default function ArtisanOnboardingPage() {
             )}
             <Button
               onClick={handleNext}
-              disabled={saving || (step === 1 && (!skillCategory || !skill))}
+              disabled={
+                saving ||
+                (step === 1 && (!skillCategory || !skill)) ||
+                (step === 2 && (
+                  pricingModes.length === 0 ||
+                  (pricingModes.includes("daily") && !pricePerDay) ||
+                  (pricingModes.includes("hourly") && !pricePerHour)
+                ))
+              }
               className="flex-1 rounded-xl gap-2 bg-primary hover:bg-primary/90"
             >
               {saving ? "Saving…" : isLast ? "Complete profile" : "Continue"}
