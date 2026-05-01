@@ -419,16 +419,10 @@ export default function DashboardJobs() {
               )}
 
               <div className="space-y-2 text-sm">
-                {selected.dailyRate != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Daily rate</span>
-                    <span className="font-semibold">{fmt(selected.dailyRate)} / day</span>
-                  </div>
-                )}
-                {selected.daysCharged != null && selected.totalAmount != null && (
+                {selected.totalAmount != null && selected.totalAmount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total</span>
-                    <span className="font-semibold">{fmt(selected.totalAmount)} ({selected.daysCharged} day{selected.daysCharged === 1 ? "" : "s"})</span>
+                    <span className="font-semibold">{fmt(selected.totalAmount)}</span>
                   </div>
                 )}
                 {selected.bookingType && (
@@ -567,7 +561,7 @@ export default function DashboardJobs() {
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
                   >
                     <CreditCard className="w-4 h-4" strokeWidth={1} />
-                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.totalAmount)} (${selected.daysCharged} day${selected.daysCharged === 1 ? "" : "s"})`}
+                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.totalAmount)}`}
                   </button>
                 )}
 
