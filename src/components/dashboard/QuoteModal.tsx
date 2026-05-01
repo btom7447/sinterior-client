@@ -45,6 +45,7 @@ interface QuoteModalProps {
   existingQuote?: QuoteData | null;
   onClose: () => void;
   onSuccess: () => void;
+  onAccepted?: (jobId: string) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -88,7 +89,8 @@ function QuoteBuilder({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const isEditing = !!existingQuote;
+  const isAcceptedQuote = existingQuote?.status === "accepted";
+  const isEditing = !!existingQuote && !isAcceptedQuote;
 
   const [labourType, setLabourType] = useState(existingQuote?.labourType ?? "flat");
   const [labourRate, setLabourRate] = useState<number | null>(existingQuote?.labourRate ?? null);
@@ -153,9 +155,21 @@ function QuoteBuilder({
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div>
-          <h2 className="font-display font-bold text-foreground text-lg">
-            {isEditing ? "Update Quote" : "Create Quote"}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-display font-bold text-foreground text-lg">
+              {isAcceptedQuote ? "Quote" : isEditing ? "Edit Quote" : "Create Quote"}
+            </h2>
+            {existingQuote && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+                v{existingQuote.version}
+              </span>
+            )}
+            {existingQuote?.status === "rejected" && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
+                Declined
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {jobTitle} · for {clientName}
           </p>
@@ -166,6 +180,7 @@ function QuoteBuilder({
       </div>
 
       {/* Scrollable body */}
+      <fieldset disabled={isAcceptedQuote} className="contents">
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
         {/* ── STEP 1: Labour ──────────────────────────────────────────────── */}
@@ -306,12 +321,10 @@ function QuoteBuilder({
                     </div>
                     <div>
                       <label className="block text-[11px] text-muted-foreground mb-1">Unit price (₦)</label>
-                      <Input
-                        type="number"
-                        min={0}
+                      <NairaInput
+                        value={row.unitPrice || null}
+                        onChange={(v) => updateRow(i, "unitPrice", v ?? 0)}
                         placeholder="5,000"
-                        value={row.unitPrice || ""}
-                        onChange={(e) => updateRow(i, "unitPrice", parseFloat(e.target.value) || 0)}
                       />
                     </div>
                   </div>
@@ -368,13 +381,16 @@ function QuoteBuilder({
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={submitting} className="rounded-xl flex-1">
-            Cancel
+            {isAcceptedQuote ? "Close" : "Cancel"}
           </Button>
-          <Button onClick={handleSend} disabled={submitting || !canSend} className="rounded-xl flex-1">
-            {submitting ? "Sending…" : isEditing ? "Update & Resend" : "Send Quote"}
-          </Button>
+          {!isAcceptedQuote && (
+            <Button onClick={handleSend} disabled={submitting || !canSend} className="rounded-xl flex-1">
+              {submitting ? "Sending…" : isEditing ? "Update & Resend" : "Send Quote"}
+            </Button>
+          )}
         </div>
       </div>
+      </fieldset>
     </div>
   );
 }
@@ -387,18 +403,23 @@ function QuoteViewer({
   clientName,
   artisanName,
   artisanAvatarUrl,
+  jobId,
   onClose,
   onSuccess,
+  onAccepted,
 }: {
   quote: QuoteData;
+  jobId: string;
   jobTitle: string;
   clientName: string;
   artisanName: string;
   artisanAvatarUrl?: string;
   onClose: () => void;
   onSuccess: () => void;
+  onAccepted?: (jobId: string) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const biz = quote.artisanBusiness;
   const displayName = biz?.name || artisanName;
@@ -424,8 +445,9 @@ function QuoteViewer({
     setSubmitting(true);
     try {
       await apiPost(`/quotes/${quote._id}/accept`, {});
-      toast.success("Quote accepted — work can now begin");
-      onSuccess();
+      toast.success("Quote accepted — redirecting to payment…");
+      onClose();
+      onAccepted?.(jobId);
     } catch { toast.error("Failed to accept quote"); }
     finally { setSubmitting(false); }
   };
@@ -441,7 +463,7 @@ function QuoteViewer({
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-xl">
+    <div className="relative bg-card border border-border rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-xl">
       {/* Close */}
       <div className="flex justify-end px-4 pt-4 shrink-0">
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
@@ -580,7 +602,7 @@ function QuoteViewer({
       {isSent && (
         <div className="border-t border-border px-6 py-4 space-y-2 shrink-0">
           <p className="text-xs text-muted-foreground text-center">
-            Accepting locks in the price — the artisan can start work once you confirm.
+            Accepting locks in the price and takes you to payment. Funds are held in escrow until work is done.
           </p>
           <div className="flex gap-2">
             <Button
@@ -591,9 +613,42 @@ function QuoteViewer({
             >
               Decline
             </Button>
-            <Button onClick={accept} disabled={submitting} className="flex-1 rounded-xl">
-              {submitting ? "Accepting…" : "Accept Quote"}
+            <Button onClick={() => setConfirmOpen(true)} disabled={submitting} className="flex-1 rounded-xl gap-1.5">
+              Accept & Pay
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Accept confirmation overlay */}
+      {confirmOpen && (
+        <div className="absolute inset-0 z-10 flex items-end sm:items-center justify-center bg-black/40 rounded-2xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-5 w-full max-w-sm shadow-2xl space-y-4">
+            <div>
+              <p className="font-display font-bold text-foreground text-base">Confirm acceptance</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                You&apos;re agreeing to pay{" "}
+                <span className="font-semibold text-foreground">{formatNaira(quote.total)}</span>{" "}
+                for this job. You&apos;ll be taken to payment now.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmOpen(false)}
+                disabled={submitting}
+                className="flex-1 rounded-xl"
+              >
+                Go back
+              </Button>
+              <Button
+                onClick={accept}
+                disabled={submitting}
+                className="flex-1 rounded-xl"
+              >
+                {submitting ? "Processing…" : "Confirm & Pay"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -627,12 +682,14 @@ export default function QuoteModal(props: QuoteModalProps) {
       ) : existingQuote ? (
         <QuoteViewer
           quote={existingQuote}
+          jobId={props.jobId}
           jobTitle={props.jobTitle}
           clientName={props.clientName}
           artisanName={props.artisanName}
           artisanAvatarUrl={props.artisanAvatarUrl}
           onClose={onClose}
           onSuccess={props.onSuccess}
+          onAccepted={props.onAccepted}
         />
       ) : (
         <div className="bg-card rounded-2xl p-8 text-center max-w-sm shadow-xl border border-border">

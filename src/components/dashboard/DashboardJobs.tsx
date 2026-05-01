@@ -137,16 +137,14 @@ export default function DashboardJobs() {
   // Action modal state — replaces native confirm() dialogs
   const [actionModal, setActionModal] = useState<
     | null
-    | "accept"
     | "reject"
     | "cancel"
-    | "approve-start"
     | "approve-end"
-    | "accept-work"
   >(null);
 
   // Quote state
   const [quoteModal, setQuoteModal] = useState(false);
+  const [quoteModalId, setQuoteModalId] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
   const [quotesLoading, setQuotesLoading] = useState(false);
 
@@ -186,7 +184,7 @@ export default function DashboardJobs() {
 
   const performAction = async (
     id: string,
-    action: "accept" | "reject" | "cancel" | "approve-start" | "approve-end" | "accept-work",
+    action: "reject" | "cancel" | "approve-end",
     successMsg: string,
     body: Record<string, unknown> = {}
   ) => {
@@ -477,12 +475,12 @@ export default function DashboardJobs() {
                       <FileText className="w-4 h-4 text-primary" strokeWidth={1} />
                       Quote
                     </p>
-                    {isArtisan && ["pending", "accepted", "quote_pending"].includes(selected.status) && (
+                    {isArtisan && ["pending", "accepted", "quote_pending"].includes(selected.status) && quotes.filter(q => q.status !== "superseded").length === 0 && (
                       <button
-                        onClick={() => setQuoteModal(true)}
+                        onClick={() => { setQuoteModalId(null); setQuoteModal(true); }}
                         className="text-xs text-primary font-medium hover:underline"
                       >
-                        {quotes.find(q => q.status === "sent") ? "Edit / Resend" : "Create Quote"}
+                        Create Quote
                       </button>
                     )}
                   </div>
@@ -501,12 +499,13 @@ export default function DashboardJobs() {
                         const isSent = q.status === "sent";
                         const isAccepted = q.status === "accepted";
                         const isRejected = q.status === "rejected";
+                        const canEdit = isArtisan && (isSent || isRejected) && ["pending", "accepted", "quote_pending"].includes(selected.status);
                         return (
                           <div
                             key={q._id}
                             className={`p-3 rounded-xl border text-sm space-y-1.5 ${
                               isAccepted ? "border-success/30 bg-success/5" :
-                              isRejected ? "border-destructive/20 bg-destructive/5 opacity-60" :
+                              isRejected ? "border-destructive/20 bg-destructive/5" :
                               "border-border bg-secondary/30"
                             }`}
                           >
@@ -517,19 +516,47 @@ export default function DashboardJobs() {
                                 isRejected ? "bg-destructive/20 text-destructive" :
                                 "bg-primary/10 text-primary"
                               }`}>
-                                {isSent ? "Awaiting response" : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                                {isSent ? "Awaiting response" : isRejected ? "Declined" : "Accepted"}
                               </span>
                             </div>
                             <div className="flex justify-between font-semibold text-foreground">
                               <span>Total</span>
                               <span>{formatNaira(q.total)}</span>
                             </div>
+                            {/* Artisan: view/edit button on sent or rejected quote */}
+                            {canEdit && (
+                              <button
+                                onClick={() => { setQuoteModalId(q._id); setQuoteModal(true); }}
+                                className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium bg-secondary hover:bg-secondary/80 border border-border transition-colors"
+                              >
+                                {isRejected ? "Edit & Resend Quote" : "View / Edit Quote"}
+                              </button>
+                            )}
+                            {/* Client: respond button on active sent quote */}
                             {!isArtisan && isSent && (
                               <button
-                                onClick={() => setQuoteModal(true)}
+                                onClick={() => { setQuoteModalId(q._id); setQuoteModal(true); }}
                                 className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                               >
                                 View & Respond to Quote
+                              </button>
+                            )}
+                            {/* Client: view-only on accepted or rejected quote */}
+                            {!isArtisan && (isAccepted || isRejected) && (
+                              <button
+                                onClick={() => { setQuoteModalId(q._id); setQuoteModal(true); }}
+                                className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium bg-secondary hover:bg-secondary/80 border border-border transition-colors"
+                              >
+                                View Quote
+                              </button>
+                            )}
+                            {/* Artisan: view-only on accepted quote */}
+                            {isArtisan && isAccepted && (
+                              <button
+                                onClick={() => { setQuoteModalId(q._id); setQuoteModal(true); }}
+                                className="w-full mt-1 px-3 py-2 rounded-lg text-xs font-medium bg-secondary hover:bg-secondary/80 border border-border transition-colors"
+                              >
+                                View Quote
                               </button>
                             )}
                           </div>
@@ -553,63 +580,26 @@ export default function DashboardJobs() {
                   {isArtisan ? "Message Client" : "Message Artisan"}
                 </button>
 
-                {/* Pay total — appears once a job is completed and not yet paid */}
-                {!isArtisan && selected.status === "completed" && selected.totalAmount && selected.totalAmount > 0 && selected.paymentStatus !== "paid" && (
+                {/* Fallback pay button — only if payment failed / client came back without completing Paystack */}
+                {!isArtisan && ["accepted", "in_progress", "completed"].includes(selected.status) && selected.totalAmount && selected.totalAmount > 0 && selected.paymentStatus !== "paid" && !!selected.quoteId && (
                   <button
                     onClick={() => handlePay(selected._id)}
                     disabled={payLoading}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
-                  >
-                    <CreditCard className="w-4 h-4" strokeWidth={1} />
-                    {payLoading ? "Redirecting..." : `Pay ${formatNaira(selected.totalAmount)}`}
-                  </button>
-                )}
-
-                {/* Accept work — paid + completed + not yet accepted (client only).
-                    Releases the escrow to the artisan. */}
-                {!isArtisan && selected.status === "completed" && selected.paymentStatus === "paid" && !selected.workAccepted && (
-                  <button
-                    onClick={() => setActionModal("accept-work")}
-                    disabled={statusUpdating}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
-                    <CheckCircle2 className="w-4 h-4" strokeWidth={1} />
-                    Accept work — release payment
+                    <CreditCard className="w-4 h-4" strokeWidth={1} />
+                    {payLoading ? "Redirecting..." : `Complete Payment — ${formatNaira(selected.totalAmount)}`}
                   </button>
                 )}
 
-                {/* Already accepted indicator */}
-                {!isArtisan && selected.workAccepted && (
+                {/* Completed — payment auto-released by platform when both parties confirmed */}
+                {selected.status === "completed" && selected.paymentStatus === "paid" && (
                   <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
                     <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                     <p className="text-sm text-foreground">
-                      Work accepted. Payment released to artisan.
-                    </p>
-                  </div>
-                )}
-
-                {/* Artisan view — payment held in escrow awaiting client acceptance */}
-                {isArtisan && selected.status === "completed" && selected.paymentStatus === "paid" && !selected.workAccepted && (
-                  <div className="p-3 rounded-xl border border-warning/20 bg-warning/5 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-warning shrink-0" />
-                      <p className="text-sm font-medium text-foreground">Awaiting client acceptance</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-6">
-                      Payment is held in escrow.{" "}
-                      {selected.workAutoAcceptAt
-                        ? <>Auto-releases on <strong className="text-foreground">{fmtDate(selected.workAutoAcceptAt)}</strong> if client takes no action.</>
-                        : "Will auto-release after the platform window if the client takes no action."}
-                    </p>
-                  </div>
-                )}
-
-                {/* Artisan view — work was accepted, escrow released */}
-                {isArtisan && selected.workAccepted && (
-                  <div className="p-3 rounded-xl border border-success/20 bg-success/5 flex items-center gap-3">
-                    <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-                    <p className="text-sm text-foreground">
-                      Work accepted by client. Payment released to your wallet.
+                      {isArtisan
+                        ? "Job complete. Payment released to your wallet."
+                        : "Job complete. Payment released to the artisan."}
                     </p>
                   </div>
                 )}
@@ -624,85 +614,27 @@ export default function DashboardJobs() {
                   </button>
                 )}
 
-                {/* Accept / Reject — artisan only, when job is pending */}
+                {/* Decline — artisan only, when job is pending. Accept is implicit via sending a quote. */}
                 {isArtisan && selected.status === "pending" && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setActionModal("accept")}
-                      disabled={statusUpdating}
-                      className="px-3 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => setActionModal("reject")}
-                      disabled={statusUpdating}
-                      className="px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
-                    >
-                      Decline
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setActionModal("reject")}
+                    disabled={statusUpdating}
+                    className="w-full px-3 py-2 rounded-xl text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+                  >
+                    Decline request
+                  </button>
                 )}
 
-                {/* Start approval — UI changes based on whether the caller already approved */}
-                {/* Client sees this when quote not yet accepted */}
+                {/* Awaiting quote banner */}
                 {selected.status === "accepted" && !selected.quoteId && !isArtisan && (
                   <div className="p-3 rounded-xl border border-warning/20 bg-warning/5 flex items-center gap-3">
                     <FileText className="w-4 h-4 text-warning shrink-0" strokeWidth={1} />
                     <p className="text-sm text-foreground">Waiting for the artisan to send a quote. Accept it to lock in the price before work begins.</p>
                   </div>
                 )}
-                {selected.status === "accepted" && !!selected.quoteId && (() => {
-                  const myApproved = isArtisan ? selected.artisanStartApproved : selected.clientStartApproved;
-                  const otherApproved = isArtisan ? selected.clientStartApproved : selected.artisanStartApproved;
-                  const otherLabel = isArtisan ? "client" : "artisan";
 
-                  // After I've approved but the other side hasn't — show waiting state.
-                  if (myApproved && !otherApproved) {
-                    return (
-                      <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-3">
-                        <Clock className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-sm text-foreground">
-                          Waiting for the {otherLabel} to confirm start.
-                        </p>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-foreground">Start the job</span>
-                        <span className="text-muted-foreground">Both parties must confirm</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {isArtisan
-                          ? "Confirm start once you're on site and about to begin."
-                          : "Confirm start once the artisan is on site."}
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className={`flex items-center gap-1.5 ${selected.clientStartApproved ? "text-success" : "text-muted-foreground"}`}>
-                          {selected.clientStartApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                          Client {selected.clientStartApproved ? "ready" : "pending"}
-                        </div>
-                        <div className={`flex items-center gap-1.5 ${selected.artisanStartApproved ? "text-success" : "text-muted-foreground"}`}>
-                          {selected.artisanStartApproved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                          Artisan {selected.artisanStartApproved ? "ready" : "pending"}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setActionModal("approve-start")}
-                        disabled={statusUpdating}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                      >
-                        <Play className="w-4 h-4" strokeWidth={1} />
-                        Confirm start
-                      </button>
-                    </div>
-                  );
-                })()}
-
-                {/* End approval — same UI pattern as start */}
-                {selected.status === "in_progress" && (() => {
+                {/* Confirm completion — both parties confirm work is done */}
+                {(selected.status === "accepted" || selected.status === "in_progress") && !!selected.quoteId && (() => {
                   const myApproved = isArtisan ? selected.artisanEndApproved : selected.clientEndApproved;
                   const otherApproved = isArtisan ? selected.clientEndApproved : selected.artisanEndApproved;
                   const otherLabel = isArtisan ? "client" : "artisan";
@@ -936,32 +868,6 @@ export default function DashboardJobs() {
       )}
 
       {/* ─── Job action confirmation modals ─── */}
-      {/* Accept (artisan) */}
-      <JobActionModal
-        open={actionModal === "accept" && !!selected}
-        onClose={() => setActionModal(null)}
-        onConfirm={() => {
-          if (selected) performAction(selected._id, "accept", "Job accepted");
-        }}
-        title="Accept this job request"
-        description={
-          <>
-            By accepting, you commit to taking on this job. Use chat to confirm scope and deadlines
-            with the client before starting.
-          </>
-        }
-        icon={CheckCircle2}
-        tone="primary"
-        confirmLabel="Accept job"
-        agreementLabel={
-          <>
-            I&apos;ve discussed scope, timeline, and any prerequisites with the client and
-            we&apos;ve agreed.
-          </>
-        }
-        loading={statusUpdating}
-      />
-
       {/* Reject (artisan) */}
       <JobActionModal
         open={actionModal === "reject" && !!selected}
@@ -980,33 +886,6 @@ export default function DashboardJobs() {
         loading={statusUpdating}
       />
 
-      {/* Approve start */}
-      <JobActionModal
-        open={actionModal === "approve-start" && !!selected}
-        onClose={() => setActionModal(null)}
-        onConfirm={() => {
-          if (selected) performAction(selected._id, "approve-start", "Start approved");
-        }}
-        title="Confirm start"
-        description={
-          isArtisan ? (
-            <>
-              Confirm you&apos;re <strong className="text-foreground">on site and about to start</strong>.
-              Daily billing begins as soon as both parties confirm.
-            </>
-          ) : (
-            <>
-              Confirm the artisan is <strong className="text-foreground">on site and ready to begin</strong>.
-              Daily billing begins as soon as both parties confirm.
-            </>
-          )
-        }
-        icon={Play}
-        tone="primary"
-        confirmLabel={isArtisan ? "Yes, I'm starting" : "Yes, artisan is on site"}
-        loading={statusUpdating}
-      />
-
       {/* Approve end */}
       <JobActionModal
         open={actionModal === "approve-end" && !!selected}
@@ -1018,14 +897,11 @@ export default function DashboardJobs() {
         description={
           isArtisan ? (
             <>
-              Confirm the work is <strong className="text-foreground">done</strong>. Once the client
-              also confirms, the final amount is locked in based on how many days the job ran.
+              Confirm the work is <strong className="text-foreground">done</strong>. Once the client also confirms, the job is marked complete and payment is automatically released to your wallet.
             </>
           ) : (
             <>
-              Confirm the work is <strong className="text-foreground">done and you&apos;re satisfied</strong>.
-              Once the artisan also confirms, the final amount is locked in based on how many days
-              the job ran.
+              Confirm the work is <strong className="text-foreground">done and you&apos;re satisfied</strong>. Once the artisan also confirms, the job is marked complete and payment is automatically released to them.
             </>
           )
         }
@@ -1064,38 +940,6 @@ export default function DashboardJobs() {
         loading={statusUpdating}
       />
 
-      {/* Accept work — releases escrow to artisan. Only for client. */}
-      <JobActionModal
-        open={actionModal === "accept-work" && !!selected}
-        onClose={() => setActionModal(null)}
-        onConfirm={() => {
-          if (selected) performAction(selected._id, "accept-work", "Work accepted");
-        }}
-        title="Accept work and release payment"
-        description={
-          <>
-            By accepting, you confirm the work meets the agreed standard.{" "}
-            {selected?.totalAmount && (
-              <>
-                <strong className="text-foreground">{formatNaira(selected.totalAmount)}</strong> will release
-                to the artisan&apos;s wallet (available after the platform hold period).{" "}
-              </>
-            )}
-            <strong className="text-foreground">You won&apos;t be able to dispute after acceptance</strong> —
-            raise a dispute now if there&apos;s a problem.
-          </>
-        }
-        icon={CheckCircle2}
-        tone="success"
-        confirmLabel="Yes, accept work"
-        agreementLabel={
-          <>
-            I confirm the work meets the agreed standard and release payment to the artisan.
-          </>
-        }
-        loading={statusUpdating}
-      />
-
       {/* Quote Modal */}
       {quoteModal && selected && (
         <QuoteModal
@@ -1105,12 +949,22 @@ export default function DashboardJobs() {
           artisanName={selected.artisanId?.fullName}
           artisanAvatarUrl={resolveAssetUrl(selected.artisanId?.avatarUrl || "")}
           role={isArtisan ? "artisan" : "client"}
-          existingQuote={quotes.find((q) => q.status === "sent") ?? null}
-          onClose={() => setQuoteModal(false)}
+          existingQuote={
+            quoteModalId
+              ? (quotes.find((q) => q._id === quoteModalId) ?? null)
+              : (quotes.find((q) => ["sent", "rejected"].includes(q.status)) ?? null)
+          }
+          onClose={() => { setQuoteModal(false); setQuoteModalId(null); }}
           onSuccess={() => {
             setQuoteModal(false);
+            setQuoteModalId(null);
             fetchJobs(pagination.page);
             fetchQuotes(selected._id);
+          }}
+          onAccepted={(jobId) => {
+            setQuoteModal(false);
+            setQuoteModalId(null);
+            handlePay(jobId);
           }}
         />
       )}

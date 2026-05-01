@@ -26,6 +26,7 @@ function PaymentVerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get("reference");
+  const isJobPayment = reference?.startsWith("job_") ?? false;
   const [status, setStatus] = useState<"loading" | "success" | "failed">("loading");
 
   useEffect(() => {
@@ -56,9 +57,16 @@ function PaymentVerifyContent() {
               <CheckCircle2 className="w-8 h-8 text-success" />
             </div>
             <h2 className="text-lg font-bold text-foreground">Payment Successful</h2>
-            <p className="text-sm text-muted-foreground mt-2">Your payment has been confirmed.</p>
-            <Button onClick={() => router.push("/dashboard/orders")} className="mt-6 rounded-xl">
-              View Orders
+            <p className="text-sm text-muted-foreground mt-2">
+              {isJobPayment
+                ? "Payment is held securely in escrow. Once both parties confirm the work is done, it will be released to the artisan."
+                : "Your payment has been confirmed."}
+            </p>
+            <Button
+              onClick={() => router.push(isJobPayment ? "/dashboard/jobs" : "/dashboard/orders")}
+              className="mt-6 rounded-xl"
+            >
+              {isJobPayment ? "View Jobs" : "View Orders"}
             </Button>
           </>
         )}
@@ -69,8 +77,12 @@ function PaymentVerifyContent() {
             </div>
             <h2 className="text-lg font-bold text-foreground">Payment Failed</h2>
             <p className="text-sm text-muted-foreground mt-2">We could not verify your payment. Please try again or contact support.</p>
-            <Button onClick={() => router.push("/dashboard")} variant="outline" className="mt-6 rounded-xl">
-              Back to Dashboard
+            <Button
+              onClick={() => router.push(isJobPayment ? "/dashboard/jobs" : "/dashboard")}
+              variant="outline"
+              className="mt-6 rounded-xl"
+            >
+              {isJobPayment ? "Back to Jobs" : "Back to Dashboard"}
             </Button>
           </>
         )}
