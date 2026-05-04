@@ -394,11 +394,11 @@ export default function DashboardJobs() {
 
       {/* Job Detail Modal */}
       {selected && !showReviewModal && !showReschedule && !showDispute && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null); setEditingTitle(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setSelected(null); setEditingTitle(false); }}>
           <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
               <h3 className="font-display font-bold text-foreground">Job Details</h3>
-              <button onClick={() => setSelected(null); setEditingTitle(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
+              <button onClick={() => { setSelected(null); setEditingTitle(false); }} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {isArtisan && !["completed", "cancelled"].includes(selected.status) ? (
