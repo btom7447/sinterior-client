@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Users, ShoppingBag, Wrench, MapPin, Navigation } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const statsData = [
   { target: 5000, suffix: "+", label: "Active Artisans" },
@@ -12,6 +13,7 @@ const statsData = [
 ];
 
 const HeroSection = () => {
+  const { isAuthenticated } = useAuth();
   const [counts, setCounts] = useState([0, 0, 0]);
   const statsRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
@@ -101,9 +103,9 @@ const HeroSection = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link href="/signup">
+              <Link href={isAuthenticated ? "/products" : "/signup"}>
                 <Button className="btn-hero group">
-                  Get Started Free
+                  {isAuthenticated ? "Find Products" : "Get Started Free"}
                   <ArrowRight strokeWidth={1} className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
