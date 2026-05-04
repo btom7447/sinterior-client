@@ -122,6 +122,9 @@ export default function DashboardJobs() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [titleSaving, setTitleSaving] = useState(false);
 
   // Reschedule state
   const [showReschedule, setShowReschedule] = useState(false);
@@ -205,16 +208,8 @@ export default function DashboardJobs() {
     }
   };
 
-  const handleMessage = async (participantId: string) => {
-    try {
-      await apiPost("/chat/messages", {
-        receiverId: participantId,
-        content: `Hi! I'd like to discuss the job "${selected?.title}".`,
-      });
-      router.push("/dashboard/chat");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start chat");
-    }
+  const handleMessage = (participantId: string, participantName: string) => {
+    router.push(`/dashboard/chat?recipientId=${participantId}&recipientName=${encodeURIComponent(participantName)}`);
   };
 
   const handleSubmitReview = async () => {
@@ -248,6 +243,22 @@ export default function DashboardJobs() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to initialize payment");
       setPayLoading(false);
+    }
+  };
+
+  const saveTitle = async () => {
+    if (!selected || !titleDraft.trim()) return;
+    setTitleSaving(true);
+    try {
+      const res = await apiPatch<{ data: { job: Job } }>(`/jobs/${selected._id}/title`, { title: titleDraft.trim() });
+      setSelected(res.data.job);
+      setJobs((prev) => prev.map((j) => j._id === selected._id ? { ...j, title: titleDraft.trim() } : j));
+      setEditingTitle(false);
+      toast.success("Title updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update title");
+    } finally {
+      setTitleSaving(false);
     }
   };
 
@@ -383,14 +394,43 @@ export default function DashboardJobs() {
 
       {/* Job Detail Modal */}
       {selected && !showReviewModal && !showReschedule && !showDispute && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null); setEditingTitle(false)}>
           <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
               <h3 className="font-display font-bold text-foreground">Job Details</h3>
-              <button onClick={() => setSelected(null)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
+              <button onClick={() => setSelected(null); setEditingTitle(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <h4 className="font-semibold text-foreground">{selected.title}</h4>
+              {isArtisan && !["completed", "cancelled"].includes(selected.status) ? (
+                editingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      maxLength={200}
+                      className="flex-1 text-sm font-semibold bg-secondary rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
+                    />
+                    <button onClick={saveTitle} disabled={titleSaving} className="text-xs text-primary font-medium hover:underline disabled:opacity-50">
+                      {titleSaving ? "Saving…" : "Save"}
+                    </button>
+                    <button onClick={() => setEditingTitle(false)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    <h4 className="font-semibold text-foreground">{selected.title}</h4>
+                    <button
+                      onClick={() => { setTitleDraft(selected.title); setEditingTitle(true); }}
+                      className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-primary transition-opacity"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )
+              ) : (
+                <h4 className="font-semibold text-foreground">{selected.title}</h4>
+              )}
               {selected.description && <p className="text-sm text-muted-foreground">{selected.description}</p>}
 
               {/* Appointment date badge */}
@@ -571,8 +611,8 @@ export default function DashboardJobs() {
               <div className="border-t border-border pt-3 space-y-3">
                 <button
                   onClick={() => {
-                    const otherId = isArtisan ? selected.clientId?._id : selected.artisanId?._id;
-                    if (otherId) handleMessage(otherId);
+                    const other = isArtisan ? selected.clientId : selected.artisanId;
+                    if (other?._id) handleMessage(other._id, other.fullName);
                   }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-secondary hover:bg-secondary/80 transition-colors"
                 >

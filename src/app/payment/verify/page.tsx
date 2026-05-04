@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
-import { apiGet } from "@/lib/apiClient";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
 export default function PaymentVerifyPage() {
   return (
@@ -34,9 +35,10 @@ function PaymentVerifyContent() {
       setStatus("failed");
       return;
     }
-    apiGet<{ data: { status: string } }>(`/payments/verify?reference=${reference}`)
+    fetch(`${API_BASE}/payments/verify?reference=${reference}`)
+      .then((r) => r.json())
       .then((res) => {
-        setStatus(res.data.status === "success" ? "success" : "failed");
+        setStatus(res.data?.status === "success" ? "success" : "failed");
       })
       .catch(() => setStatus("failed"));
   }, [reference]);
