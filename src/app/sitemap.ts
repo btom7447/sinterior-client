@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://sintherior.com";
 // Normalize to the API root so it works whether or not NEXT_PUBLIC_API_URL
-// already includes the /api/v1 prefix (prod .env omits it).
+// already includes the /api/v1 prefix.
 const RAW_API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 const API_BASE = RAW_API.replace(/\/+$/, "").endsWith("/api/v1")
@@ -43,6 +43,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const res = await fetch(`${API_BASE}/products?limit=100`, {
       next: { revalidate: 86400 },
+      // Hard timeout: a hung fetch (vs a failed one) would otherwise stall the
+      // build until Next kills the sitemap worker at 60s and fails the deploy.
+      signal: AbortSignal.timeout(8000),
     });
     if (res.ok) {
       const json = await res.json();
@@ -61,6 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const res = await fetch(`${API_BASE}/artisans?limit=100`, {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(8000),
     });
     if (res.ok) {
       const json = await res.json();
