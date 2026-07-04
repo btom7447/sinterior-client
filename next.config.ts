@@ -20,9 +20,14 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "api.dicebear.com" },
       // Allow backend-served uploads (product photos, avatars, etc) so the
       // Next.js image optimizer can resize/format them instead of serving
-      // raw bytes. Covers both local dev and Render deployment.
+      // raw bytes. Covers local dev, Railway, and the legacy Render host
+      // (keep Render until all DB image URLs are confirmed migrated).
       { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "api.sintherior.com" },
+      { protocol: "https", hostname: "*.up.railway.app" },
       { protocol: "https", hostname: "sinterior-server.onrender.com" },
+      // New uploads live on Cloudinary
+      { protocol: "https", hostname: "res.cloudinary.com" },
     ],
   },
 

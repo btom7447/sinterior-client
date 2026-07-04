@@ -1,9 +1,14 @@
 import type { MetadataRoute } from "next";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://www.sintherior.com";
-const API_BASE =
+  process.env.NEXT_PUBLIC_APP_URL || "https://sintherior.com";
+// Normalize to the API root so it works whether or not NEXT_PUBLIC_API_URL
+// already includes the /api/v1 prefix (prod .env omits it).
+const RAW_API =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const API_BASE = RAW_API.replace(/\/+$/, "").endsWith("/api/v1")
+  ? RAW_API.replace(/\/+$/, "")
+  : `${RAW_API.replace(/\/+$/, "")}/api/v1`;
 
 /**
  * Dynamic sitemap — fetches product and artisan IDs from the API so
