@@ -99,19 +99,24 @@ export default function CheckoutPage() {
     }
   }, [form.state, fetchShipping]);
 
-  // Auth guard — must be logged in to checkout
-  if (!authLoading && !isAuthenticated) {
-    router.push("/login?next=%2Fcheckout");
-    return null;
-  }
+  // Auth / cart / verification guards — redirect from an effect, never during
+  // render: router.push() reads the browser `location`, which doesn't exist
+  // when this page is statically prerendered at build time.
+  const needsLogin = !authLoading && !isAuthenticated;
+  const cartEmpty = items.length === 0;
+  const needsVerification = !!user && !user.isEmailVerified;
 
-  if (items.length === 0) {
-    router.push("/cart");
-    return null;
-  }
+  useEffect(() => {
+    if (needsLogin) {
+      router.push("/login?next=%2Fcheckout");
+    } else if (cartEmpty) {
+      router.push("/cart");
+    } else if (needsVerification) {
+      router.push("/verify-email");
+    }
+  }, [needsLogin, cartEmpty, needsVerification, router]);
 
-  if (user && !user.isEmailVerified) {
-    router.push("/verify-email");
+  if (needsLogin || cartEmpty || needsVerification) {
     return null;
   }
 
