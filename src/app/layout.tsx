@@ -122,6 +122,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${jakarta.variable}`}>
+      <head>
+        <meta
+          name="facebook-domain-verification"
+          content="oiprr0xzfea3oo0zfsvmcn7gp8vux3"
+        />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>
