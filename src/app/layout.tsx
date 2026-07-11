@@ -3,8 +3,7 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://sintherior.com";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sintherior.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
