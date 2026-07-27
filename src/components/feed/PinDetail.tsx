@@ -84,7 +84,7 @@ const PinDetail = ({ pinId, initial }: PinDetailProps) => {
         <ArrowLeft className="h-5 w-5 text-foreground" />
       </button>
 
-      <div className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[var(--shadow-card)] lg:grid lg:grid-cols-2">
+      <div className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card lg:grid lg:grid-cols-2">
         {/* Media */}
         <div className="relative bg-secondary">
           {pin.mediaType === "video" ? (
@@ -151,7 +151,7 @@ const PinDetail = ({ pinId, initial }: PinDetailProps) => {
             <div className="flex flex-wrap gap-1.5">
               {pin.taxonomy.trade && (
                 <Link
-                  href={`/?trade=${pin.taxonomy.trade}`}
+                  href={`/feed?trade=${pin.taxonomy.trade}`}
                   className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/70"
                 >
                   {taxonomyLabel(pin.taxonomy.trade)}
@@ -159,7 +159,7 @@ const PinDetail = ({ pinId, initial }: PinDetailProps) => {
               )}
               {pin.taxonomy.room && (
                 <Link
-                  href={`/?room=${pin.taxonomy.room}`}
+                  href={`/feed?room=${pin.taxonomy.room}`}
                   className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/70"
                 >
                   {taxonomyLabel(pin.taxonomy.room)}

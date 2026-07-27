@@ -12,9 +12,11 @@ import type { FeedFilters, FeedResponse, Pin } from "@/types/pins";
 interface FeedHomeProps {
   /** Server-rendered first page (unfiltered) — hydrates without a fetch flash. */
   initialPage: FeedResponse["data"] | null;
+  /** Route the feed lives at — filter state is written to this path's URL. */
+  basePath?: string;
 }
 
-const FeedHome = ({ initialPage }: FeedHomeProps) => {
+const FeedHome = ({ initialPage, basePath = "/feed" }: FeedHomeProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [savingPin, setSavingPin] = useState<Pin | null>(null);
@@ -42,9 +44,9 @@ const FeedHome = ({ initialPage }: FeedHomeProps) => {
     (next: FeedFilters) => {
       const params = new URLSearchParams();
       for (const [k, v] of Object.entries(next)) if (v) params.set(k, v);
-      router.replace(params.size ? `/?${params}` : "/", { scroll: false });
+      router.replace(params.size ? `${basePath}?${params}` : basePath, { scroll: false });
     },
-    [router]
+    [router, basePath]
   );
 
   const onEndReached = useCallback(() => {
@@ -52,7 +54,7 @@ const FeedHome = ({ initialPage }: FeedHomeProps) => {
   }, [feed]);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-4 pb-16 pt-4 sm:px-6">
+    <div className="mx-auto max-w-400 px-4 pb-16 pt-4 sm:px-6">
       <FilterChips filters={filters} onChange={setFilters} />
 
       <div className="mt-4">
