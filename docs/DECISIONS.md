@@ -4,6 +4,9 @@
 
 _Newest first. Every entry: date · decision · why · what it forecloses._
 
+## 2026-07-27 — SCOPE CORRECTION: website home stays; pin feed lives at /feed
+The Pinterest-first surface is the **mobile app**, not this website. This repo keeps its original landing page and structure; the pin feed (masonry, pin pages, boards, follows) is hosted at **/feed** as the web twin of the mobile experience, replacing the old admin-curated feed page. A brief "feed becomes home" deploy was reverted same day (`6fdf19c`). Forecloses: no home-page takeover; feed UI changes must not restructure the rest of the site.
+
 ## 2026-07-27 — Pinterest-style pivot: four scope decisions
 1. **Feed becomes home** — sintherior.com lands on the masonry feed; old home → `/about`. Full commitment to inspiration-first identity.
 2. **Native pin creation: artisans + suppliers only** (clients browse/save/act). Keeps every pin commercially actionable and moderation load low.
