@@ -1,15 +1,13 @@
+import { Suspense } from "react";
 import AppLayout from "@/components/layout/AppLayout";
-import HeroSection from "@/components/home/HeroSection";
-import FeaturedServices from "@/components/home/FeaturedServices";
-import FeaturedProducts from "@/components/home/FeaturedProducts";
-import FeaturedRealEstate from "@/components/home/FeaturedRealEstate";
-import HowItWorks from "@/components/home/HowItWorks";
-import RolesSection from "@/components/home/RolesSection";
-import CTASection from "@/components/home/CTASection";
-import AOSInit from "@/components/home/AOSInit";
+import FeedHome from "@/components/feed/FeedHome";
+import type { FeedResponse } from "@/types/pins";
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://www.sintherior.com";
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.sintherior.com";
+const RAW_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const API_BASE = RAW_API.replace(/\/+$/, "").endsWith("/api/v1")
+  ? RAW_API.replace(/\/+$/, "")
+  : `${RAW_API.replace(/\/+$/, "")}/api/v1`;
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -19,28 +17,15 @@ const jsonLd = {
       "@id": `${SITE_URL}/#organization`,
       name: "Sintherior",
       url: SITE_URL,
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE_URL}/icon.png`,
-        width: 208,
-        height: 208,
-      },
+      logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png`, width: 208, height: 208 },
       description:
-        "Nigeria's trusted marketplace for hiring verified artisans (plumbers, electricians, carpenters, painters) and buying quality building materials from verified suppliers.",
-      areaServed: {
-        "@type": "Country",
-        name: "Nigeria",
-      },
+        "Nigeria's visual marketplace for construction and interior design — browse real artisan work, save ideas to boards, and hire the people who made them.",
+      areaServed: { "@type": "Country", name: "Nigeria" },
       sameAs: [
         "https://twitter.com/sintherior",
         "https://www.facebook.com/sintherior",
         "https://www.instagram.com/sintherior",
       ],
-      contactPoint: {
-        "@type": "ContactPoint",
-        contactType: "customer service",
-        availableLanguage: ["English"],
-      },
     },
     {
       "@type": "WebSite",
@@ -48,46 +33,44 @@ const jsonLd = {
       url: SITE_URL,
       name: "Sintherior",
       description:
-        "Hire verified artisans and buy quality building materials across Nigeria. Find plumbers, electricians, carpenters, and more near you.",
+        "Browse and save real work by verified Nigerian artisans — then hire them, buy materials, or book property viewings.",
       publisher: { "@id": `${SITE_URL}/#organization` },
-      potentialAction: [
-        {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `${SITE_URL}/artisan?q={search_term_string}`,
-          },
-          "query-input": "required name=search_term_string",
-        },
-        {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `${SITE_URL}/products?search={search_term_string}`,
-          },
-          "query-input": "required name=search_term_string",
-        },
-      ],
       inLanguage: "en-NG",
     },
   ],
 };
 
-export default function LandingPage() {
+/**
+ * Home IS the feed (DECISIONS 2026-07-27). First page is fetched on the server
+ * (anonymous ranking, 60s revalidate) so the landing paint carries real pins;
+ * the client hydrates it into the infinite query and personalizes on scroll.
+ */
+async function fetchFirstPage(): Promise<FeedResponse["data"] | null> {
+  try {
+    const res = await fetch(`${API_BASE}/pins/feed?limit=24`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as FeedResponse;
+    return json.data;
+  } catch {
+    return null; // client fetch takes over
+  }
+}
+
+export default async function HomePage() {
+  const initialPage = await fetchFirstPage();
+
   return (
     <AppLayout>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <AOSInit />
-      <HeroSection />
-      <HowItWorks />
-      <FeaturedServices />
-      <FeaturedProducts />
-      <FeaturedRealEstate />
-      <RolesSection />
-      <CTASection />
+      <Suspense>
+        <FeedHome initialPage={initialPage} />
+      </Suspense>
     </AppLayout>
   );
 }
