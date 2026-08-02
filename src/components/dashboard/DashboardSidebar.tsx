@@ -121,6 +121,10 @@ const menuGroups: Record<string, MenuGroup[]> = {
     {
       label: "My Business",
       items: [
+        // Suppliers post to the feed too — the server allows it and the app
+        // offers it, so leaving it off here made the entry look artisan-only
+        // when it never was.
+        { title: "My Work", url: "/dashboard/pins", icon: ImageIcon },
         { title: "Business", url: "/dashboard/business", icon: Building2 },
         { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
         { title: "Wallet", url: "/dashboard/wallet", icon: Wallet },
