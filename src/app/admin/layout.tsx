@@ -13,6 +13,7 @@ function getPageTitle(pathname: string) {
   if (pathname.includes("users")) return "User Management";
   if (pathname.includes("orders")) return "Orders";
   if (pathname.includes("products")) return "Products";
+  if (pathname.includes("categories")) return "Categories";
   if (pathname.includes("verification")) return "Seller Verification";
   if (pathname.includes("disputes")) return "Disputes";
   if (pathname.includes("blog")) return "Blog CMS";

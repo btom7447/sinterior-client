@@ -1,6 +1,7 @@
 "use client";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   ShoppingBag,
   Package,
@@ -42,6 +43,7 @@ const menuItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Orders", url: "/admin/orders", icon: ShoppingBag },
   { title: "Products", url: "/admin/products", icon: Package },
+  { title: "Categories", url: "/admin/categories", icon: LayoutGrid },
   { title: "Verification", url: "/admin/verification", icon: BadgeCheck },
   { title: "Disputes", url: "/admin/disputes", icon: Scale },
   { title: "Payments", url: "/admin/payments", icon: WalletIcon },
