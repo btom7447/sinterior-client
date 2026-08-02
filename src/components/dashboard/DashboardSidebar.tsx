@@ -10,6 +10,7 @@ import {
   BarChart3,
   Home,
   Wrench,
+  Image as ImageIcon,
   Package,
   User,
   LogOut,
@@ -95,6 +96,7 @@ const menuGroups: Record<string, MenuGroup[]> = {
     {
       label: "My Profile",
       items: [
+        { title: "My Work", url: "/dashboard/pins", icon: ImageIcon },
         { title: "Professional Profile", url: "/dashboard/artisan-profile", icon: Wrench },
         { title: "Verification", url: "/dashboard/verification", icon: ShieldCheck },
         { title: "Wallet", url: "/dashboard/wallet", icon: Wallet },

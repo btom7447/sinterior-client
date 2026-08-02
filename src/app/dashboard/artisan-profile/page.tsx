@@ -45,9 +45,18 @@ interface ArtisanProfile {
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+/*
+ * Portfolio is not a tab here any more.
+ *
+ * It wrote to a legacy array embedded on the ArtisanProfile, which nothing
+ * renders since the public profile started reading pins — so every upload made
+ * through it went somewhere nobody would ever see. An artisan's work lives at
+ * /dashboard/pins now, which is the same source as their public portfolio and
+ * the feed. The PortfolioTab component is left in place, unreferenced, until
+ * the existing legacy rows are migrated across.
+ */
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "portfolio", label: "Portfolio" },
   { id: "certifications", label: "Certifications" },
   { id: "availability", label: "Availability" },
   { id: "location", label: "Location & Service Area" },
@@ -142,9 +151,6 @@ export default function ArtisanProfilePage() {
 
       {tab === "overview" && (
         <OverviewTab data={data} onSave={patch} saving={saving} />
-      )}
-      {tab === "portfolio" && (
-        <PortfolioTab data={data} onChange={fetchProfile} />
       )}
       {tab === "certifications" && (
         <CertificationsTab data={data} onChange={fetchProfile} />
@@ -297,6 +303,10 @@ function OverviewTab({
   );
 }
 
+// Unreferenced on purpose — see the note on TABS. Fifteen legacy rows still sit
+// on production profiles, already mirrored into pins by the one-time backfill,
+// and this stays as the reference for reading them until they are cleared.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PortfolioTab({
   data,
   onChange,

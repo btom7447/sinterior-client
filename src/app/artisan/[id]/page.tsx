@@ -6,6 +6,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import { apiGet, apiPost } from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
 import { type ApiArtisan, resolveAssetUrl } from "@/types/api";
+import { type Pin } from "@/types/pins";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +15,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import {
   Star, MapPin, Clock, CheckCircle2,
   Briefcase, Award, Users, ArrowLeft, Calendar,
-  Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle, Ban,
+  Shield, ShieldCheck, ShieldOff, ThumbsUp, Hammer, MessageCircle, Ban, Play,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +33,7 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
   const { profile, isAuthenticated } = useAuth();
   const [artisan, setArtisan] = useState<ApiArtisan | null>(null);
   const [reviews, setReviews] = useState<ArtisanReview[]>([]);
+  const [pins, setPins] = useState<Pin[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingType, setBookingType] = useState<"urgent" | "scheduled">("urgent");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -53,6 +56,27 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
             setReviews(reviewsRes.data?.reviews || []);
           } catch {
             // Non-fatal — page still renders without the reviews block.
+          }
+
+          /*
+           * The portfolio is the artisan's pins.
+           *
+           * It used to render `artisan.portfolio`, a legacy array embedded on
+           * the ArtisanProfile and written by a separate upload endpoint — so
+           * work posted from the app was invisible here, and work uploaded here
+           * never reached the feed. Two galleries for one body of work, neither
+           * of which was the whole of it.
+           *
+           * Native pins only: a supplier's product pins are derived from
+           * listings and belong in the shop, not in somebody's portfolio.
+           */
+          try {
+            const pinsRes = await apiGet<{ data: { pins: Pin[] } }>(
+              `/pins/feed?author=${targetProfileId}&sourceType=native&limit=24`
+            );
+            setPins(pinsRes.data?.pins || []);
+          } catch {
+            // Non-fatal — the rest of the profile still stands.
           }
         }
       } catch {
@@ -443,21 +467,41 @@ export default function ArtisanProfilePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Portfolio */}
-        {artisan.portfolio && artisan.portfolio.length > 0 && (
+        {/* Portfolio — the artisan's pins, which is the same work the feed shows */}
+        {pins.length > 0 && (
           <div className="max-w-5xl mx-auto px-4 mt-8">
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-              <h2 className="font-display text-xl font-bold text-foreground mb-5">Portfolio</h2>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display text-xl font-bold text-foreground">Portfolio</h2>
+                <span className="text-sm text-muted-foreground">
+                  {pins.length} {pins.length === 1 ? "post" : "posts"}
+                </span>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {artisan.portfolio.map((item, i) => (
-                  <div key={i} className="group relative aspect-square rounded-xl overflow-hidden">
-                    <img src={item.url} alt={item.caption} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    {item.caption && (
+                {pins.map((pin) => (
+                  <Link
+                    key={pin._id}
+                    href={`/pin/${pin._id}`}
+                    className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer"
+                  >
+                    <img
+                      src={pin.posterUrl || pin.mediaUrl}
+                      alt={pin.title || "Portfolio work"}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {/* Video is a different kind of thing to click on, and the
+                        poster frame alone does not say so. */}
+                    {pin.mediaType === "video" && (
+                      <span className="absolute top-2 right-2 grid place-items-center w-7 h-7 rounded-full bg-black/60">
+                        <Play className="w-3.5 h-3.5 text-white fill-white" />
+                      </span>
+                    )}
+                    {pin.title && (
                       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent px-2.5 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-white text-xs leading-snug">{item.caption}</p>
+                        <p className="text-white text-xs leading-snug line-clamp-2">{pin.title}</p>
                       </div>
                     )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
