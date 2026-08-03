@@ -36,6 +36,7 @@ import {
 import { toast } from "sonner";
 
 interface MyPin {
+  media?: { url: string; type: "image" | "video"; posterUrl?: string }[];
   _id: string;
   mediaUrl: string;
   posterUrl?: string;
@@ -48,16 +49,24 @@ interface MyPin {
   createdAt: string;
 }
 
+interface Slot {
+  url: string;
+  type: "image" | "video";
+  posterUrl?: string;
+}
+
 type Draft = {
-  mediaUrl: string;
-  mediaType: "image" | "video";
+  media: Slot[];
   title: string;
   caption: string;
   trade: string;
   room: string;
 };
 
-const EMPTY: Draft = { mediaUrl: "", mediaType: "image", title: "", caption: "", trade: "", room: "" };
+const EMPTY: Draft = { media: [], title: "", caption: "", trade: "", room: "" };
+
+/** A pin holds up to ten photographs, same as the app. */
+const MAX_PHOTOS = 10;
 
 export default function DashboardPinsPage() {
   const [pins, setPins] = useState<MyPin[]>([]);
@@ -250,8 +259,19 @@ function PinEditor({
   const [draft, setDraft] = useState<Draft>(
     pin
       ? {
-          mediaUrl: pin.mediaUrl,
-          mediaType: pin.mediaType,
+          /*
+           * Seed from the album, falling back to the flat fields.
+           *
+           * Pins made before albums existed carry only mediaUrl, and starting
+           * those from an empty list would wipe their photograph on save.
+           */
+          media: pin.media?.length
+            ? pin.media.map((item) => ({
+                url: item.url,
+                type: item.type,
+                posterUrl: item.posterUrl,
+              }))
+            : [{ url: pin.mediaUrl, type: pin.mediaType, posterUrl: pin.posterUrl }],
           title: pin.title,
           caption: pin.caption ?? "",
           trade: pin.taxonomy?.trade ?? "",
@@ -263,19 +283,33 @@ function PinEditor({
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const upload = async (file: File) => {
+  const upload = async (files: FileList) => {
+    const room = MAX_PHOTOS - draft.media.filter((m) => m.type === "image").length;
+    if (room <= 0) return toast.error(`A post can hold ${MAX_PHOTOS} photos`);
+
     setUploading(true);
     try {
       const form = new FormData();
-      form.append("images", file);
-      const res = await apiUpload<{ data: { urls?: string[]; media?: { url: string }[] } }>(
-        "/pins/upload",
-        form
-      );
-      const url = res.data.urls?.[0] ?? res.data.media?.[0]?.url;
-      if (!url) throw new Error("Upload returned nothing");
-      setDraft((d) => ({ ...d, mediaUrl: url, mediaType: "image" }));
-      toast.success("Photo uploaded");
+      // The endpoint takes up to ten at once, so a multi-select is one request
+      // rather than one per file.
+      Array.from(files)
+        .slice(0, room)
+        .forEach((file) => form.append("images", file));
+
+      const res = await apiUpload<{ data: { urls?: string[] } }>("/pins/upload", form);
+      const urls = res.data.urls ?? [];
+      if (!urls.length) throw new Error("Upload returned nothing");
+
+      setDraft((d) => ({
+        ...d,
+        // Photos join what is already there; a video is replaced, since a pin
+        // is photographs or one video and never a mixture.
+        media: [
+          ...d.media.filter((m) => m.type === "image"),
+          ...urls.map((url) => ({ url, type: "image" as const })),
+        ],
+      }));
+      toast.success(urls.length > 1 ? `${urls.length} photos added` : "Photo added");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -284,14 +318,18 @@ function PinEditor({
   };
 
   const save = async () => {
-    if (!draft.mediaUrl) return toast.error("Add a photo first");
+    if (!draft.media.length) return toast.error("Add a photo first");
     if (draft.title.trim().length < 3) return toast.error("Give it a title");
 
     setSaving(true);
     try {
       const body = {
-        mediaUrl: draft.mediaUrl,
-        mediaType: draft.mediaType,
+        // Sent as an album so the flat fields and media[] are written together.
+        media: draft.media.map((item) => ({
+          type: item.type,
+          url: item.url,
+          posterUrl: item.posterUrl,
+        })),
         title: draft.title.trim(),
         caption: draft.caption.trim() || undefined,
         taxonomy: { trade: draft.trade || null, room: draft.room || null },
@@ -328,36 +366,79 @@ function PinEditor({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* The photograph is the post. Everything else is caption. */}
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="relative w-full aspect-video rounded-xl overflow-hidden bg-accent grid place-items-center group cursor-pointer border border-dashed border-border"
-          >
-            {draft.mediaUrl ? (
-              <Image src={draft.mediaUrl} alt="" fill sizes="512px" className="object-cover" />
-            ) : (
-              <span className="flex flex-col items-center gap-2 text-muted-foreground">
-                <ImagePlus className="w-7 h-7" strokeWidth={1.5} />
-                <span className="text-sm font-medium">Add a photo of the finished job</span>
-              </span>
-            )}
-            <span className="absolute inset-0 bg-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
-              {uploading ? (
-                <Loader2 className="w-5 h-5 text-background animate-spin" />
-              ) : (
-                <ImagePlus className="w-5 h-5 text-background" strokeWidth={1.5} />
+          {/* The photographs are the post. Everything else is caption. */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              {draft.media.map((item, i) => (
+                <div
+                  key={`${item.url}-${i}`}
+                  className="relative aspect-square rounded-lg overflow-hidden bg-accent group"
+                >
+                  <Image
+                    src={item.posterUrl || item.url}
+                    alt=""
+                    fill
+                    sizes="200px"
+                    className="object-cover"
+                  />
+                  {item.type === "video" && (
+                    <span className="absolute top-1.5 left-1.5 grid place-items-center w-6 h-6 rounded-full bg-black/60">
+                      <Play className="w-3 h-3 text-white fill-white" />
+                    </span>
+                  )}
+                  {/* The first one is the cover — it is the frame the feed and
+                      the profile grid show, so which it is has to be visible. */}
+                  {i === 0 && draft.media.length > 1 && (
+                    <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px] font-bold">
+                      Cover
+                    </span>
+                  )}
+                  <button
+                    onClick={() =>
+                      setDraft((d) => ({ ...d, media: d.media.filter((_, at) => at !== i) }))
+                    }
+                    className="absolute top-1.5 right-1.5 h-6 w-6 grid place-items-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    aria-label="Remove"
+                  >
+                    <X className="w-3.5 h-3.5" strokeWidth={2} />
+                  </button>
+                </div>
+              ))}
+
+              {draft.media.filter((m) => m.type === "image").length < MAX_PHOTOS && (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="aspect-square rounded-lg border border-dashed border-border grid place-items-center text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <span className="flex flex-col items-center gap-1">
+                      <ImagePlus className="w-6 h-6" strokeWidth={1.5} />
+                      <span className="text-xs font-medium">
+                        {draft.media.length ? "Add" : "Add photos"}
+                      </span>
+                    </span>
+                  )}
+                </button>
               )}
-            </span>
-          </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Up to {MAX_PHOTOS} photos. The first is the cover.
+              {draft.media.some((m) => m.type === "video") &&
+                " Videos are recorded and replaced from the app."}
+            </p>
+          </div>
           <input
             ref={fileRef}
             type="file"
             accept="image/png,image/jpeg,image/webp"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) upload(file);
+              if (e.target.files?.length) upload(e.target.files);
               e.target.value = "";
             }}
           />
