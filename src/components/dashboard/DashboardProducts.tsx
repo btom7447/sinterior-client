@@ -4,6 +4,16 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from "@/lib/apiClient";
 import { resolveAssetUrl } from "@/types/api";
 import {
+  buildRows,
+  checkVariants,
+  parseValues,
+  rowLabel,
+  toSkuBody,
+  totalStock,
+  type VariantAxis,
+  type VariantRow,
+} from "@/lib/variants";
+import {
   Package,
   Plus,
   Pencil,
@@ -44,6 +54,20 @@ interface Product {
   specs?: Record<string, string | string[]>;
   lowStockThreshold?: number;
   createdAt: string;
+  /*
+   * Built on the phone, invisible here until now. A form that cannot see these
+   * still sends a quantity, and that quantity overwrote the sum of rows it
+   * never rendered.
+   */
+  variantOptions?: { name: string; values: string[] }[];
+  skus?: {
+    key: string;
+    options: Record<string, string>;
+    price: number;
+    quantity: number;
+    sku?: string;
+    image?: string;
+  }[];
 }
 
 interface Pagination {
@@ -85,6 +109,13 @@ export default function DashboardProducts() {
   const specIdRef = useRef(0);
   const [specs, setSpecs] = useState<{ id: number; key: string; values: string[] }[]>([]);
 
+  // Variants — the axes a supplier sells along, and the combinations they imply.
+  const [axes, setAxes] = useState<VariantAxis[]>([]);
+  const [rows, setRows] = useState<VariantRow[]>([]);
+  const [rowUploading, setRowUploading] = useState<string | null>(null);
+  const rowFileRef = useRef<HTMLInputElement>(null);
+  const rowTargetRef = useRef<string | null>(null);
+
   const fetchProducts = useCallback(async (page = 1, query = "") => {
     setLoading(true);
     try {
@@ -113,6 +144,8 @@ export default function DashboardProducts() {
     setForm(EMPTY_FORM);
     setImageUrls([]);
     setSpecs([]);
+    setAxes([]);
+    setRows([]);
     setShowForm(true);
   };
 
@@ -137,6 +170,17 @@ export default function DashboardProducts() {
             values: Array.isArray(val) ? val : typeof val === "string" ? val.split(",").map((v) => v.trim()).filter(Boolean) : [String(val)],
           }))
         : []
+    );
+    setAxes((p.variantOptions ?? []).map((a) => ({ name: a.name, values: a.values ?? [] })));
+    setRows(
+      (p.skus ?? []).map((sku) => ({
+        key: sku.key,
+        options: sku.options ?? {},
+        price: String(sku.price ?? ""),
+        quantity: String(sku.quantity ?? ""),
+        sku: sku.sku,
+        image: sku.image,
+      }))
     );
     setShowForm(true);
   };
@@ -205,8 +249,42 @@ export default function DashboardProducts() {
     setSpecs((prev) => prev.filter((_, i) => i !== index));
   };
 
+  /** Upload a photograph for one variant row. */
+  const handleRowImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const key = rowTargetRef.current;
+    e.target.value = "";
+    if (!file || !key) return;
+
+    setRowUploading(key);
+    try {
+      const fd = new FormData();
+      fd.append("images", file);
+      const res = await apiUpload<{ data: { urls: string[] } }>("/products/upload-images", fd);
+      const url = res.data.urls?.[0];
+      if (!url) throw new Error("Upload returned nothing");
+      setRows((prev) => prev.map((r) => (r.key === key ? { ...r, image: url } : r)));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "That photo didn't upload");
+    } finally {
+      setRowUploading(null);
+      rowTargetRef.current = null;
+    }
+  };
+
+  const setAxesAndRebuild = (next: VariantAxis[]) => {
+    setAxes(next);
+    // Rebuilding keeps what is already filled in, so editing one axis does not
+    // discard the prices and photographs on every other combination.
+    setRows(buildRows(next, rows));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const variantProblem = checkVariants(rows);
+    if (variantProblem) return toast.error(variantProblem);
+
     setSubmitting(true);
     try {
       const qty = Math.max(0, parseInt(form.quantity, 10) || 0);
@@ -218,14 +296,29 @@ export default function DashboardProducts() {
         if (s.key.trim() && s.values.length > 0) specsObj[s.key.trim()] = s.values;
       });
 
+      /*
+       * With variants, the rows are the truth.
+       *
+       * The single quantity box describes a listing that has none. Sending it
+       * for one that does overwrites the sum of the rows — and sending inStock
+       * derived from it marks a listing sold out while every variant still has
+       * stock. The server recomputes both from the rows, so the honest thing is
+       * to send the rows and let it.
+       */
+      const hasVariants = rows.length > 0;
+
       const body = {
         ...form,
-        price: Number(form.price),
-        quantity: qty,
-        inStock: qty > 0,
+        price: hasVariants
+          ? Math.min(...rows.map((r) => Number(r.price) || 0))
+          : Number(form.price),
+        quantity: hasVariants ? totalStock(rows) : qty,
+        inStock: hasVariants ? rows.some((r) => (Number(r.quantity) || 0) > 0) : qty > 0,
         images: imageUrls,
         specs: specsObj,
         lowStockThreshold: threshold,
+        variantOptions: axes.filter((a) => a.name.trim() && a.values.length),
+        skus: toSkuBody(rows),
       };
 
       if (editingId) {
@@ -492,6 +585,147 @@ export default function DashboardProducts() {
               <div>
                 <label className="text-sm font-medium text-foreground">Description</label>
                 <textarea maxLength={2000} rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+              </div>
+
+              {/*
+                Variants — the axes this is sold along, and the combinations
+                they imply. Invisible on this form until now, which meant a
+                supplier who built a table on the phone saw one price and one
+                stock box here, and the number they typed overwrote the rows.
+              */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-foreground">Options</label>
+                  {axes.length < 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setAxesAndRebuild([...axes, { name: "", values: [] }])}
+                      className="text-xs text-primary hover:underline cursor-pointer"
+                    >
+                      + Add option
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Only if this comes in different sizes, colours or grades. Each combination
+                  gets its own price, stock and photo.
+                </p>
+
+                <div className="space-y-2">
+                  {axes.map((axis, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        value={axis.name}
+                        onChange={(e) =>
+                          setAxesAndRebuild(
+                            axes.map((a, at) => (at === i ? { ...a, name: e.target.value } : a))
+                          )
+                        }
+                        placeholder="What varies? e.g. Size"
+                        className="w-1/3 px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <input
+                        defaultValue={axis.values.join(", ")}
+                        onBlur={(e) =>
+                          setAxesAndRebuild(
+                            axes.map((a, at) =>
+                              at === i ? { ...a, values: parseValues(e.target.value) } : a
+                            )
+                          )
+                        }
+                        placeholder="Values, comma separated — 600x600, 300x600"
+                        className="flex-1 px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAxesAndRebuild(axes.filter((_, at) => at !== i))}
+                        className="px-2 text-muted-foreground hover:text-destructive cursor-pointer"
+                        aria-label="Remove option"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {rows.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {rows.length} combination{rows.length === 1 ? "" : "s"} · total stock{" "}
+                      {totalStock(rows)}
+                    </p>
+                    {rows.map((row) => (
+                      <div key={row.key} className="flex items-center gap-2">
+                        {/* The photo drives the buyer's swatches — two colours
+                            are a choice between two pictures. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            rowTargetRef.current = row.key;
+                            rowFileRef.current?.click();
+                          }}
+                          disabled={rowUploading === row.key}
+                          className="relative w-9 h-9 shrink-0 rounded-lg overflow-hidden bg-accent grid place-items-center cursor-pointer"
+                          aria-label={`Photo for ${rowLabel(row)}`}
+                        >
+                          {rowUploading === row.key ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                          ) : row.image ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={resolveAssetUrl(row.image)}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <ImagePlus className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                        <span className="flex-1 text-sm text-foreground truncate">
+                          {rowLabel(row)}
+                        </span>
+                        <input
+                          value={row.price}
+                          onChange={(e) =>
+                            setRows(
+                              rows.map((r) =>
+                                r.key === row.key ? { ...r, price: e.target.value } : r
+                              )
+                            )
+                          }
+                          placeholder="Price"
+                          inputMode="numeric"
+                          className="w-24 px-2 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <input
+                          value={row.quantity}
+                          onChange={(e) =>
+                            setRows(
+                              rows.map((r) =>
+                                r.key === row.key ? { ...r, quantity: e.target.value } : r
+                              )
+                            )
+                          }
+                          placeholder="Stock"
+                          inputMode="numeric"
+                          className="w-20 px-2 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      With options set, the price and stock boxes above are ignored — the rows
+                      are what buyers get.
+                    </p>
+                  </div>
+                )}
+
+                <input
+                  ref={rowFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleRowImage}
+                />
               </div>
 
               {/* Specs — each spec has a key and multiple values (tags) */}
