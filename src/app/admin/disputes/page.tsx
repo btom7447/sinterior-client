@@ -51,6 +51,8 @@ export default function AdminDisputesPage() {
   const [selected, setSelected] = useState<DisputeRow | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [resolution, setResolution] = useState("");
+  /** Partial refund in naira. Blank refunds the whole escrow entry. */
+  const [refundNaira, setRefundNaira] = useState("");
   const [stats, setStats] = useState<DisputePageStats | null>(null);
 
   const refreshStats = useCallback(() => {
@@ -82,13 +84,48 @@ export default function AdminDisputesPage() {
     fetchDisputes();
   }, [fetchDisputes]);
 
-  const handleResolve = async (id: string, status: "resolved" | "dismissed") => {
+  /**
+   * Resolving a dispute, and saying in whose favour.
+   *
+   * `ruleFor` was never sent. The server reads it and, for 'buyer', runs the
+   * refund against the escrow entry — so an admin could find for the buyer,
+   * mark the dispute resolved, tell them so, and move no money at all. The
+   * button simply said "Resolve", which is not a decision the API can act on.
+   *
+   * refundAmount is optional and in kobo; blank means refund in full.
+   */
+  const handleResolve = async (
+    id: string,
+    status: "resolved" | "dismissed",
+    ruleFor?: "buyer" | "seller"
+  ) => {
+    const naira = Number(refundNaira);
+    if (ruleFor === "buyer" && refundNaira.trim() && (!Number.isFinite(naira) || naira <= 0)) {
+      toast.error("Enter a valid refund amount, or leave it blank to refund in full.");
+      return;
+    }
     try {
-      await apiPatch(`/admin/disputes/${id}`, { status, adminNote, resolution });
-      toast.success(`Dispute ${status}`);
+      await apiPatch(`/admin/disputes/${id}`, {
+        status,
+        adminNote,
+        resolution,
+        ...(ruleFor ? { ruleFor } : {}),
+        // Kobo on the wire — the admin types naira, money is stored in minor units.
+        ...(ruleFor === "buyer" && refundNaira.trim()
+          ? { refundAmount: Math.round(naira * 100) }
+          : {}),
+      });
+      toast.success(
+        ruleFor === "buyer"
+          ? refundNaira.trim()
+            ? `Resolved. ₦${naira.toLocaleString()} refunded to the buyer.`
+            : "Resolved. The buyer has been refunded in full."
+          : `Dispute ${status}`
+      );
       setSelected(null);
       setAdminNote("");
       setResolution("");
+      setRefundNaira("");
       fetchDisputes(pagination.page);
       refreshStats();
     } catch {
@@ -241,6 +278,24 @@ export default function AdminDisputesPage() {
                       placeholder="Resolution details..."
                     />
                   </div>
+                  {/* Only read when finding for the buyer. Blank refunds the whole
+                      escrow entry, which is the common case — a partial is for a
+                      part-delivered order. */}
+                  <div>
+                    <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                      Partial refund (₦)
+                    </label>
+                    <input
+                      value={refundNaira}
+                      onChange={(e) => setRefundNaira(e.target.value)}
+                      inputMode="numeric"
+                      className="w-full mt-1 px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="Leave blank to refund in full"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Used only by “Refund the buyer”. Money moves as soon as you press it.
+                    </p>
+                  </div>
                 </>
               ) : (
                 <>
@@ -264,10 +319,18 @@ export default function AdminDisputesPage() {
               {(selected.status === "open" || selected.status === "under_review") && (
                 <>
                   <button
-                    onClick={() => handleResolve(selected._id, "resolved")}
+                    onClick={() => handleResolve(selected._id, "resolved", "buyer")}
                     className="flex-1 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+                    title="Marks the dispute resolved AND refunds the buyer from escrow"
                   >
-                    Resolve
+                    Refund the buyer
+                  </button>
+                  <button
+                    onClick={() => handleResolve(selected._id, "resolved", "seller")}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                    title="Marks the dispute resolved with no refund"
+                  >
+                    Find for the seller
                   </button>
                   <button
                     onClick={() => handleResolve(selected._id, "dismissed")}
