@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useState, useCallback } from "react";
 import { apiGet } from "@/lib/apiClient";
@@ -154,7 +155,12 @@ export default function AdminOrdersPage() {
                 orders.map((o) => (
                   <tr key={o._id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
                     <td className="p-4 font-mono text-xs text-muted-foreground">
-                      {o._id.slice(-8).toUpperCase()}
+                      <Link
+                        href={`/admin/orders/${o._id}`}
+                        className="hover:text-primary transition-colors"
+                      >
+                        {o._id.slice(-8).toUpperCase()}
+                      </Link>
                     </td>
                     <td className="p-4 font-medium text-foreground">{o.buyer?.fullName || "—"}</td>
                     <td className="p-4 hidden md:table-cell text-muted-foreground">{o.seller?.fullName || "—"}</td>

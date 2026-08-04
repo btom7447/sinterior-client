@@ -258,6 +258,14 @@ export default function AdminDisputesPage() {
                 <p className="text-sm text-foreground">{selected.reason}</p>
               </div>
 
+              {!!selected.orderId && (
+                <a
+                  href={`/admin/orders/${selected.orderId}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                >
+                  Open the order this is about →
+                </a>
+              )}
               {selected.status === "open" || selected.status === "under_review" ? (
                 <>
                   <div>
