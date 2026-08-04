@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/apiClient";
+import { SearchDemand } from "@/components/admin/SearchDemand";
 import {
   Users,
   ShoppingBag,
@@ -235,6 +236,10 @@ export default function AdminAnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* Demand nobody is serving. Reads off search, which records every term
+          and how often it came back empty — and which nothing had ever shown. */}
+      <SearchDemand />
     </div>
   );
 }
