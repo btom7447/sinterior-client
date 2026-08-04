@@ -41,7 +41,7 @@ interface SupplierBusiness {
   categories?: string[];
   deliveryOptions?: string[];
   deliveryDays?: string;
-  coverageStates?: string;
+  coverageStates?: string[] | string;
   businessAddress?: string;
   whatsappNumber?: string;
   isVerified?: boolean;
@@ -158,6 +158,14 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
     );
   }
 
+  /*
+   * Coverage is a list of states now. Rendered raw it printed "Lagos,Ogun,Oyo"
+   * with no spaces; older records may still hold the free-text string a
+   * supplier typed, so both shapes are read here.
+   */
+  const coverageText = Array.isArray(business?.coverageStates)
+    ? business.coverageStates.join(", ")
+    : business?.coverageStates || "";
   const avgRating = business?.rating || 0;
   const totalReviews = business?.reviewCount || reviews.length || 0;
   const hasBusinessInfo = business && (business.description || business.businessAddress || business.categories?.length);
@@ -474,12 +482,12 @@ export default function SellerProfilePage({ params }: { params: Promise<{ suppli
                         </div>
                       </div>
                     )}
-                    {business?.coverageStates && (
+                    {!!coverageText && (
                       <div className="rounded-xl border border-border p-4 flex items-start gap-3">
                         <Truck strokeWidth={1} className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-foreground">Coverage Area</p>
-                          <p className="text-sm text-muted-foreground mt-0.5">{business.coverageStates}</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">{coverageText}</p>
                         </div>
                       </div>
                     )}

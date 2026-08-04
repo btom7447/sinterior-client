@@ -26,7 +26,8 @@ interface SupplierData {
   categories?: string[];
   deliveryOptions?: string[];
   deliveryDays?: string;
-  coverageStates?: string;
+  /** A list since 2026-08-04; the API still accepts a comma-separated string. */
+  coverageStates?: string[] | string;
   businessAddress?: string;
   whatsappNumber?: string;
   bankName?: string;
@@ -76,7 +77,11 @@ export default function DashboardBusiness() {
           categories: s.categories || [],
           deliveryOptions: s.deliveryOptions || [],
           deliveryDays: s.deliveryDays || "",
-          coverageStates: s.coverageStates || "",
+          // Joined for the text box. The API parses whatever it is sent back
+          // and stores a canonical list, so this stays free text here.
+          coverageStates: Array.isArray(s.coverageStates)
+            ? s.coverageStates.join(", ")
+            : s.coverageStates || "",
           businessAddress: s.businessAddress || "",
           whatsappNumber: s.whatsappNumber || "",
           bankName: s.bankName || "",
