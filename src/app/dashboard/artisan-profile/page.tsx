@@ -7,14 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker from "@/components/location/LocationPicker";
-import { Award, Building2, Camera, MapPin, Save, Upload, Wrench, X } from "lucide-react";
+import { Award, Building2, MapPin, Save, Upload, Wrench, X } from "lucide-react";
 import { ARTISAN_SKILL_CATEGORIES } from "@/lib/constants";
 import { toast } from "sonner";
 
-interface Portfolio {
-  url: string;
-  caption?: string;
-}
 interface Cert {
   name: string;
   issuedBy?: string;
@@ -40,20 +36,21 @@ interface ArtisanProfile {
   workHoursEnd?: string;
   tools?: string[];
   additionalSkills?: string[];
-  portfolio?: Portfolio[];
   certifications?: Cert[];
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 /*
- * Portfolio is not a tab here any more.
+ * Portfolio is not a tab here.
  *
- * It wrote to a legacy array embedded on the ArtisanProfile, which nothing
- * renders since the public profile started reading pins — so every upload made
+ * It wrote to a legacy array embedded on the ArtisanProfile, which nothing has
+ * rendered since the public profile started reading pins — so every upload made
  * through it went somewhere nobody would ever see. An artisan's work lives at
- * /dashboard/pins now, which is the same source as their public portfolio and
- * the feed. The PortfolioTab component is left in place, unreferenced, until
- * the existing legacy rows are migrated across.
+ * /dashboard/pins now, the same source as their public portfolio and the feed.
+ *
+ * The unreferenced PortfolioTab that sat here as a reference for reading the
+ * legacy rows is gone with them: production measured zero, and the upload
+ * endpoint now writes draft pins instead of that array.
  */
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -302,136 +299,6 @@ function OverviewTab({
     </div>
   );
 }
-
-// Unreferenced on purpose — see the note on TABS. Fifteen legacy rows still sit
-// on production profiles, already mirrored into pins by the one-time backfill,
-// and this stays as the reference for reading them until they are cleared.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function PortfolioTab({
-  data,
-  onChange,
-}: {
-  data: ArtisanProfile;
-  onChange: () => Promise<void> | void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const portfolio = data.portfolio || [];
-
-  const upload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      const form = new FormData();
-      Array.from(files)
-        .slice(0, 10 - portfolio.length)
-        .forEach((f, i) => {
-          form.append("images", f);
-          form.append(`captions[${i}]`, "");
-        });
-      await apiUpload("/artisans/portfolio", form);
-      toast.success("Uploaded");
-      await onChange();
-    } catch {
-      toast.error("Upload failed");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  const updateCaption = async (index: number, caption: string) => {
-    const next = [...portfolio];
-    next[index] = { ...next[index], caption };
-    try {
-      await apiPatch("/artisans/onboarding", { portfolio: next });
-      await onChange();
-    } catch {
-      toast.error("Save failed");
-    }
-  };
-
-  const remove = async (index: number) => {
-    const next = portfolio.filter((_, i) => i !== index);
-    try {
-      await apiPatch("/artisans/onboarding", { portfolio: next });
-      toast.success("Removed");
-      await onChange();
-    } catch {
-      toast.error("Remove failed");
-    }
-  };
-
-  return (
-    <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Portfolio photos</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Up to 10 photos of your past work. Good photos win 3× more enquiries.
-          </p>
-        </div>
-        <Button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading || portfolio.length >= 10}
-          className="rounded-xl gap-1.5"
-        >
-          <Upload className="w-4 h-4" strokeWidth={1} />
-          {uploading ? "Uploading…" : "Add photos"}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => upload(e.target.files)}
-        />
-      </div>
-
-      {portfolio.length === 0 ? (
-        <div className="border border-dashed border-border rounded-2xl p-10 text-center">
-          <Camera className="w-8 h-8 text-muted-foreground mx-auto mb-2" strokeWidth={1} />
-          <p className="text-sm text-muted-foreground">
-            No portfolio photos yet. Upload your first to get started.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {portfolio.map((p, i) => (
-            <div key={i} className="group">
-              <div className="relative aspect-square rounded-2xl overflow-hidden border border-border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={p.caption || ""} className="w-full h-full object-cover" />
-                <button
-                  onClick={() => remove(i)}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <label className="block mt-2">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Caption
-                </span>
-                <input
-                  defaultValue={p.caption || ""}
-                  onBlur={(e) => {
-                    const v = e.target.value;
-                    if (v !== (p.caption || "")) updateCaption(i, v);
-                  }}
-                  placeholder="e.g. 3-bedroom finish, Lekki"
-                  className="mt-0.5 w-full text-sm bg-transparent border-b border-border focus:border-primary focus:outline-none py-1"
-                />
-              </label>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function CertificationsTab({
   data,
   onChange,

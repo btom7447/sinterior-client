@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
-  CheckCircle2,
 } from "lucide-react";
 import { JobActionModal } from "@/components/dashboard/JobActionModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,7 +63,7 @@ export default function DashboardAppointments() {
 
   // Action modal — replaces native confirm() dialogs
   const [actionModal, setActionModal] = useState<
-    { kind: "accept" | "reject" | "cancel"; job: ScheduledJob } | null
+    { kind: "reject" | "cancel"; job: ScheduledJob } | null
   >(null);
 
   const fetchJobs = useCallback(
@@ -107,7 +106,16 @@ export default function DashboardAppointments() {
 
   const action = async (
     id: string,
-    act: "accept" | "reject" | "cancel" | "approve-start" | "approve-end",
+    /*
+     * Only the three the API actually has.
+     *
+     * This union used to include "accept" and "approve-start". Neither endpoint
+     * exists: a job is not accepted by the artisan pressing a button, it becomes
+     * `accepted` when the client accepts a quote, and `in_progress` was dropped
+     * when `approve-end` was made to work straight from `accepted`. Both posted
+     * to a route that answers 404, so the button reported a failure every time.
+     */
+    act: "reject" | "cancel" | "approve-end",
     successMsg: string,
     body: Record<string, unknown> = {}
   ) => {
@@ -265,12 +273,15 @@ export default function DashboardAppointments() {
 
                   {isArtisan && j.status === "pending" && (
                     <>
+                      {/* A pending request is answered with a price, not a
+                          yes. Sending the quote is what moves it forward, and
+                          that composer lives on the job itself. */}
                       <button
-                        onClick={() => setActionModal({ kind: "accept", job: j })}
+                        onClick={() => router.push(`/dashboard/jobs?id=${j._id}`)}
                         disabled={updating}
                         className="px-2.5 py-1 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
                       >
-                        Accept
+                        Send quote
                       </button>
                       <button
                         onClick={() => setActionModal({ kind: "reject", job: j })}
@@ -327,26 +338,6 @@ export default function DashboardAppointments() {
       )}
 
       {/* Action confirmation modals */}
-      <JobActionModal
-        open={actionModal?.kind === "accept"}
-        onClose={() => setActionModal(null)}
-        onConfirm={() => {
-          if (actionModal) action(actionModal.job._id, "accept", "Accepted");
-        }}
-        title="Accept this booking"
-        description={
-          <>
-            By accepting, you commit to the booking. Use chat to confirm scope and any prerequisites
-            with the client before the start date.
-          </>
-        }
-        icon={CheckCircle2}
-        tone="primary"
-        confirmLabel="Accept booking"
-        agreementLabel={<>I&apos;ve discussed scope and timing with the client and we&apos;ve agreed.</>}
-        loading={updating}
-      />
-
       <JobActionModal
         open={actionModal?.kind === "reject"}
         onClose={() => setActionModal(null)}

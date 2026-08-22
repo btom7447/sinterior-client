@@ -166,7 +166,10 @@ function PortfolioStep({
   return (
     <div>
       <h2 className="font-display text-2xl font-bold text-foreground mb-1">Portfolio photos</h2>
-      <p className="text-muted-foreground mb-6">Upload up to 6 photos of your past work. Good photos get 3× more enquiries.</p>
+      <p className="text-muted-foreground mb-6">
+        Upload up to 6 photos of your past work. Good photos get 3× more enquiries. They are saved
+        as drafts — publish them from My Work whenever you are ready.
+      </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         {items.map((item) => (
@@ -624,16 +627,21 @@ export default function ArtisanOnboardingPage() {
     if (isLast) {
       setSaving(true);
       try {
-        // 1. Upload portfolio images as real files
-        let portfolioUrls: { url: string; caption: string }[] = [];
+        /*
+         * 1. Upload the work photos.
+         *
+         * They come back as draft pins, not as an embedded array — the endpoint
+         * changed underneath this when the array it used to write to turned out
+         * to be one nothing rendered. Nothing here needs the response: the
+         * uploaded urls were being assigned to a variable and never read.
+         */
         if (portfolio.length > 0) {
           const form = new FormData();
           portfolio.forEach((p, i) => {
             form.append("images", p.file);
             form.append(`captions[${i}]`, p.caption);
           });
-          const res = await apiUpload<{ data: { portfolio: { url: string; caption: string }[] } }>("/artisans/portfolio", form);
-          portfolioUrls = res.data.portfolio;
+          await apiUpload("/artisans/portfolio", form);
         }
 
         // 2. Upload certification files and collect URLs
